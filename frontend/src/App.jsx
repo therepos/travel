@@ -39,12 +39,17 @@ function MapView({ places, selectedPlace, onSelectPlace, mapRef }) {
     }).setView([25, 20], 2);
 
     L.control.zoom({ position: "bottomright" }).addTo(map);
-    L.tileLayer("https://{s}.basemaps.cartocdn.com/voyager/{z}/{x}/{y}{r}.png", {
+    L.tileLayer("https://tile.openstreetmap.org/{z}/{x}/{y}.png", {
       maxZoom: 19,
+      // Alternative: "https://{s}.basemaps.cartocdn.com/voyager/{z}/{x}/{y}{r}.png"
     }).addTo(map);
 
     leafletRef.current = map;
     mapRef.current = map;
+
+    // Force tile load after layout settles
+    setTimeout(() => map.invalidateSize(), 100);
+    setTimeout(() => map.invalidateSize(), 500);
 
     return () => {
       map.remove();
@@ -403,7 +408,7 @@ export default function App() {
         background: "#FEFDFB" }}>
         <div>
           <h1 style={{ fontFamily: "'Instrument Serif', Georgia, serif", fontSize: 28,
-            fontWeight: 400, color: "#2C2A26", margin: 0 }}>travel</h1>
+            fontWeight: 400, color: "#2C2A26", margin: 0 }}>Wanderlust</h1>
           <div style={{ fontSize: 12, color: "#B5AFA5", marginTop: 1 }}>
             {places.length} place{places.length !== 1 ? "s" : ""} saved
           </div>
