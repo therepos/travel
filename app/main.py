@@ -13,7 +13,7 @@ from typing import Optional
 
 DB_PATH = os.environ.get("DB_PATH", "/data/travel.db")
 GOOGLE_API_KEY = os.environ.get("GOOGLE_PLACES_API_KEY", "")
-STATIC_DIR = os.environ.get("STATIC_DIR", "/app/frontend/dist")
+STATIC_DIR = os.environ.get("STATIC_DIR", "/app/ui/dist")
 
 
 def get_db():
@@ -53,6 +53,9 @@ def init_db():
             dining TEXT DEFAULT '[]',
             serves TEXT DEFAULT '[]',
             amenities TEXT DEFAULT '[]',
+            place_type TEXT DEFAULT '',
+            payment TEXT DEFAULT '[]',
+            reviews TEXT DEFAULT '[]',
             saved TEXT NOT NULL
         )
     """)
@@ -66,6 +69,35 @@ def init_db():
             updated TEXT NOT NULL
         )
     """)
+    conn.commit()
+
+    # ── Migrations: add columns that may not exist in older DBs ──
+    cursor = conn.execute("PRAGMA table_info(places)")
+    existing = {row[1] for row in cursor.fetchall()}
+    migrations = [
+        ("city", "TEXT DEFAULT ''"),
+        ("district", "TEXT DEFAULT ''"),
+        ("region", "TEXT DEFAULT ''"),
+        ("google_place_id", "TEXT DEFAULT ''"),
+        ("google_maps_url", "TEXT DEFAULT ''"),
+        ("phone", "TEXT DEFAULT ''"),
+        ("website", "TEXT DEFAULT ''"),
+        ("rating", "REAL DEFAULT 0"),
+        ("rating_count", "INTEGER DEFAULT 0"),
+        ("price_level", "TEXT DEFAULT ''"),
+        ("hours", "TEXT DEFAULT ''"),
+        ("editorial_summary", "TEXT DEFAULT ''"),
+        ("dining", "TEXT DEFAULT '[]'"),
+        ("serves", "TEXT DEFAULT '[]'"),
+        ("amenities", "TEXT DEFAULT '[]'"),
+        ("auto_tags", "TEXT DEFAULT '[]'"),
+        ("place_type", "TEXT DEFAULT ''"),
+        ("payment", "TEXT DEFAULT '[]'"),
+        ("reviews", "TEXT DEFAULT '[]'"),
+    ]
+    for col, typedef in migrations:
+        if col not in existing:
+            conn.execute(f"ALTER TABLE places ADD COLUMN {col} {typedef}")
     conn.commit()
     conn.close()
 
@@ -95,6 +127,9 @@ class PlaceCreate(BaseModel):
     dining: list[str] = []
     serves: list[str] = []
     amenities: list[str] = []
+    place_type: str = ""
+    payment: list[str] = []
+    reviews: list[dict] = []
     saved: str = ""
 
 
@@ -246,8 +281,43 @@ def extract_hours(place):
     roh = place.get("regularOpeningHours", {})
     descs = roh.get("weekdayDescriptions", [])
     if descs:
-        return " | ".join(descs[:3])
+        return " | ".join(descs)
     return ""
+
+
+def extract_open_now(place):
+    coh = place.get("currentOpeningHours", {})
+    if "openNow" in coh:
+        return coh["openNow"]
+    roh = place.get("regularOpeningHours", {})
+    if "openNow" in roh:
+        return roh["openNow"]
+    return None
+
+
+def extract_payment(place):
+    po = place.get("paymentOptions", {})
+    p = []
+    if po.get("acceptsCreditCards"): p.append("credit card")
+    if po.get("acceptsDebitCards"): p.append("debit card")
+    if po.get("acceptsCashOnly"): p.append("cash only")
+    if po.get("acceptsNfc"): p.append("NFC/contactless")
+    return p
+
+
+def extract_reviews(place):
+    reviews = place.get("reviews", [])
+    out = []
+    for r in reviews[:3]:
+        text = r.get("text", {})
+        author = r.get("authorAttribution", {})
+        out.append({
+            "text": text.get("text", "") if isinstance(text, dict) else "",
+            "rating": r.get("rating", 0),
+            "author": author.get("displayName", ""),
+            "time": r.get("relativePublishTimeDescription", ""),
+        })
+    return out
 
 
 def extract_price_level(place):
@@ -263,10 +333,11 @@ def extract_price_level(place):
 SEARCH_FIELDS = ",".join([
     "places.id", "places.displayName", "places.formattedAddress",
     "places.location", "places.photos", "places.addressComponents",
-    "places.types", "places.googleMapsLinks",
+    "places.types", "places.primaryTypeDisplayName", "places.googleMapsLinks",
     "places.internationalPhoneNumber", "places.websiteUri",
     "places.rating", "places.userRatingCount", "places.priceLevel",
-    "places.regularOpeningHours", "places.editorialSummary",
+    "places.regularOpeningHours", "places.currentOpeningHours",
+    "places.editorialSummary",
     "places.dineIn", "places.delivery", "places.curbsidePickup",
     "places.reservable", "places.outdoorSeating",
     "places.servesBreakfast", "places.servesBrunch", "places.servesLunch",
@@ -276,8 +347,79 @@ SEARCH_FIELDS = ",".join([
     "places.accessibilityOptions", "places.restroom",
     "places.goodForChildren", "places.goodForGroups",
     "places.goodForWatchingSports", "places.liveMusic", "places.allowsDogs",
-    "places.parkingOptions",
+    "places.parkingOptions", "places.paymentOptions",
+    "places.reviews",
 ])
+
+# For Place Details (single place by ID), field names don't have "places." prefix
+DETAIL_FIELDS = ",".join([
+    "id", "displayName", "formattedAddress",
+    "location", "photos", "addressComponents",
+    "types", "primaryTypeDisplayName", "googleMapsLinks",
+    "internationalPhoneNumber", "websiteUri",
+    "rating", "userRatingCount", "priceLevel",
+    "regularOpeningHours", "currentOpeningHours",
+    "editorialSummary",
+    "dineIn", "delivery", "curbsidePickup",
+    "reservable", "outdoorSeating",
+    "servesBreakfast", "servesBrunch", "servesLunch",
+    "servesDinner", "servesBeer", "servesWine",
+    "servesCocktails", "servesCoffee", "servesDessert",
+    "servesVegetarianFood",
+    "accessibilityOptions", "restroom",
+    "goodForChildren", "goodForGroups",
+    "goodForWatchingSports", "liveMusic", "allowsDogs",
+    "parkingOptions", "paymentOptions",
+    "reviews",
+])
+
+
+def parse_place(p):
+    """Parse a Google Places API response object into our format."""
+    loc = p.get("location", {})
+    dn = p.get("displayName", {})
+    addr = extract_address_parts(p.get("addressComponents", []))
+
+    photo_url = ""
+    photos = p.get("photos", [])
+    if photos:
+        pn = photos[0].get("name", "")
+        if pn:
+            photo_url = f"https://places.googleapis.com/v1/{pn}/media?maxWidthPx=800&key={GOOGLE_API_KEY}"
+
+    ml = p.get("googleMapsLinks", {})
+    maps_url = ml.get("placeUri", "")
+    if not maps_url:
+        maps_url = f"https://www.google.com/maps/search/?api=1&query={dn.get('text','')}&query_place_id={p.get('id','')}"
+
+    es = p.get("editorialSummary", {})
+    ptdn = p.get("primaryTypeDisplayName", {})
+
+    return {
+        "google_place_id": p.get("id", ""),
+        "name": dn.get("text", ""),
+        "address": p.get("formattedAddress", ""),
+        "country": addr["country"], "city": addr["city"],
+        "district": addr["district"], "region": addr["region"],
+        "lat": loc.get("latitude", 0), "lng": loc.get("longitude", 0),
+        "photo": photo_url,
+        "auto_tags": extract_auto_tags(p.get("types", [])),
+        "place_type": ptdn.get("text", "") if isinstance(ptdn, dict) else "",
+        "google_maps_url": maps_url,
+        "phone": p.get("internationalPhoneNumber", ""),
+        "website": p.get("websiteUri", ""),
+        "rating": p.get("rating", 0),
+        "rating_count": p.get("userRatingCount", 0),
+        "price_level": extract_price_level(p),
+        "hours": extract_hours(p),
+        "open_now": extract_open_now(p),
+        "editorial_summary": es.get("text", "") if isinstance(es, dict) else "",
+        "dining": extract_dining(p),
+        "serves": extract_serves(p),
+        "amenities": extract_amenities(p),
+        "payment": extract_payment(p),
+        "reviews": extract_reviews(p),
+    }
 
 
 @app.get("/api/search")
@@ -303,45 +445,7 @@ async def search_places(q: str = Query(..., min_length=1)):
 
     results = []
     for p in resp.json().get("places", []):
-        loc = p.get("location", {})
-        dn = p.get("displayName", {})
-        addr = extract_address_parts(p.get("addressComponents", []))
-
-        photo_url = ""
-        photos = p.get("photos", [])
-        if photos:
-            pn = photos[0].get("name", "")
-            if pn:
-                photo_url = f"https://places.googleapis.com/v1/{pn}/media?maxWidthPx=800&key={GOOGLE_API_KEY}"
-
-        ml = p.get("googleMapsLinks", {})
-        maps_url = ml.get("placeUri", "")
-        if not maps_url:
-            maps_url = f"https://www.google.com/maps/search/?api=1&query={dn.get('text','')}&query_place_id={p.get('id','')}"
-
-        es = p.get("editorialSummary", {})
-
-        results.append({
-            "google_place_id": p.get("id", ""),
-            "name": dn.get("text", ""),
-            "address": p.get("formattedAddress", ""),
-            "country": addr["country"], "city": addr["city"],
-            "district": addr["district"], "region": addr["region"],
-            "lat": loc.get("latitude", 0), "lng": loc.get("longitude", 0),
-            "photo": photo_url,
-            "auto_tags": extract_auto_tags(p.get("types", [])),
-            "google_maps_url": maps_url,
-            "phone": p.get("internationalPhoneNumber", ""),
-            "website": p.get("websiteUri", ""),
-            "rating": p.get("rating", 0),
-            "rating_count": p.get("userRatingCount", 0),
-            "price_level": extract_price_level(p),
-            "hours": extract_hours(p),
-            "editorial_summary": es.get("text", "") if isinstance(es, dict) else "",
-            "dining": extract_dining(p),
-            "serves": extract_serves(p),
-            "amenities": extract_amenities(p),
-        })
+        results.append(parse_place(p))
     return {"results": results}
 
 
@@ -360,7 +464,7 @@ async def static_map(lat: float, lng: float, zoom: int = 15, w: int = 600, h: in
 
 # ── Places CRUD ───────────────────────────────────────────
 
-JSON_FIELDS = ["tags", "auto_tags", "dining", "serves", "amenities"]
+JSON_FIELDS = ["tags", "auto_tags", "dining", "serves", "amenities", "payment", "reviews"]
 
 def row_to_place(row):
     d = dict(row)
@@ -385,8 +489,9 @@ def create_place(place: PlaceCreate):
         """INSERT INTO places (name,address,country,city,district,region,lat,lng,
            photo,tags,auto_tags,notes,google_place_id,google_maps_url,
            phone,website,rating,rating_count,price_level,hours,
-           editorial_summary,dining,serves,amenities,saved)
-           VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)""",
+           editorial_summary,dining,serves,amenities,
+           place_type,payment,reviews,saved)
+           VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)""",
         (place.name, place.address, place.country, place.city, place.district,
          place.region, place.lat, place.lng, place.photo,
          json.dumps(place.tags), json.dumps(place.auto_tags),
@@ -394,7 +499,8 @@ def create_place(place: PlaceCreate):
          place.phone, place.website, place.rating, place.rating_count,
          place.price_level, place.hours, place.editorial_summary,
          json.dumps(place.dining), json.dumps(place.serves),
-         json.dumps(place.amenities), saved))
+         json.dumps(place.amenities), place.place_type,
+         json.dumps(place.payment), json.dumps(place.reviews), saved))
     conn.commit()
     row = conn.execute("SELECT * FROM places WHERE id=?", (cursor.lastrowid,)).fetchone()
     conn.close()
@@ -427,6 +533,63 @@ def delete_place(place_id: int):
     conn.execute("DELETE FROM places WHERE id=?", (place_id,))
     conn.commit(); conn.close()
     return {"ok": True}
+
+
+@app.post("/api/places/{place_id}/refresh")
+async def refresh_place(place_id: int):
+    if not GOOGLE_API_KEY:
+        raise HTTPException(500, "Google Places API key not configured")
+    conn = get_db()
+    row = conn.execute("SELECT * FROM places WHERE id=?", (place_id,)).fetchone()
+    if not row: conn.close(); raise HTTPException(404, "Place not found")
+    place = dict(row)
+    gid = place.get("google_place_id", "")
+    if not gid: conn.close(); raise HTTPException(400, "No Google Place ID stored")
+
+    # Fetch fresh data from Google Places API (New)
+    headers = {
+        "Content-Type": "application/json",
+        "X-Goog-Api-Key": GOOGLE_API_KEY,
+        "X-Goog-FieldMask": DETAIL_FIELDS,
+    }
+    async with httpx.AsyncClient(timeout=10) as client:
+        try:
+            resp = await client.get(f"https://places.googleapis.com/v1/places/{gid}", headers=headers)
+            resp.raise_for_status()
+        except httpx.HTTPStatusError as e:
+            conn.close()
+            raise HTTPException(502, f"Google API error: {e.response.status_code}")
+        except httpx.RequestError as e:
+            conn.close()
+            raise HTTPException(502, f"Request failed: {str(e)}")
+
+    fresh = parse_place(resp.json())
+
+    # Preserve user data: tags, notes, saved date
+    tags = json.loads(place.get("tags") or "[]")
+    notes = place.get("notes", "")
+    saved = place.get("saved", "")
+
+    conn.execute(
+        """UPDATE places SET name=?,address=?,country=?,city=?,district=?,region=?,
+           lat=?,lng=?,photo=?,auto_tags=?,google_maps_url=?,
+           phone=?,website=?,rating=?,rating_count=?,price_level=?,hours=?,
+           editorial_summary=?,dining=?,serves=?,amenities=?,
+           place_type=?,payment=?,reviews=?
+           WHERE id=?""",
+        (fresh["name"], fresh["address"], fresh["country"], fresh["city"],
+         fresh["district"], fresh["region"], fresh["lat"], fresh["lng"],
+         fresh["photo"], json.dumps(fresh["auto_tags"]), fresh["google_maps_url"],
+         fresh["phone"], fresh["website"], fresh["rating"], fresh["rating_count"],
+         fresh["price_level"], fresh["hours"], fresh["editorial_summary"],
+         json.dumps(fresh["dining"]), json.dumps(fresh["serves"]),
+         json.dumps(fresh["amenities"]), fresh["place_type"],
+         json.dumps(fresh["payment"]), json.dumps(fresh["reviews"]),
+         place_id))
+    conn.commit()
+    row = conn.execute("SELECT * FROM places WHERE id=?", (place_id,)).fetchone()
+    conn.close()
+    return row_to_place(row)
 
 
 # ── Routes CRUD ───────────────────────────────────────────
