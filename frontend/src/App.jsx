@@ -254,22 +254,12 @@ function RoutePlanner({allPlaces,initialStops,editingRoute,onClose,onSaved}) {
   });
   const active=allPlaces.filter(p=>selected.includes(p.id));
 
-  const buildUrl=()=>{
-    if(active.length===0)return null;
-    if(active.length===1)return`https://www.google.com/maps/search/?api=1&query=${active[0].lat},${active[0].lng}`;
-    const o=`${active[0].lat},${active[0].lng}`,d=`${active[active.length-1].lat},${active[active.length-1].lng}`;
-    let url=`https://www.google.com/maps/dir/?api=1&origin=${o}&destination=${d}&travelmode=driving`;
-    if(active.length>2)url+=`&waypoints=${active.slice(1,-1).map(p=>`${p.lat},${p.lng}`).join("|")}`;
-    return url;
-  };
-
-  const openAndSave=async()=>{
-    const url=buildUrl();if(!url)return;
+  const saveRoute=async()=>{
+    if(active.length===0)return;
     setSaving(true);
     try{
       if(editingRoute){await api(`/routes/${editingRoute.id}`,{method:"PUT",body:JSON.stringify({name,stops:selected})});}
       else{await api("/routes",{method:"POST",body:JSON.stringify({name,stops:selected})});}
-      window.open(url,"_blank");
       if(onSaved)onSaved();
       onClose();
     }catch(e){console.error(e);}
@@ -300,9 +290,9 @@ function RoutePlanner({allPlaces,initialStops,editingRoute,onClose,onSaved}) {
         })}
       </div>
       {/* Actions */}
-      <button onClick={openAndSave} disabled={active.length===0||saving} style={{width:"100%",padding:12,borderRadius:10,border:"none",background:active.length>0?"#1B7A5A":"#E0DBD3",color:active.length>0?"#FFF":"#A09888",fontSize:13,fontWeight:600,cursor:active.length>0?"pointer":"default",display:"flex",alignItems:"center",justifyContent:"center",gap:5}}>
-        {I.gmaps} {editingRoute?"Update & open route":"Open route in Google Maps"}</button>
-      <div style={{fontSize:10,color:"#B5AFA5",textAlign:"center",marginTop:6}}>Route will be saved when opened{active.length>10&&<span style={{color:"#B04040"}}> · Max ~10 waypoints</span>}</div>
+      <button onClick={saveRoute} disabled={active.length===0||saving} style={{width:"100%",padding:12,borderRadius:10,border:"none",background:active.length>0?"#1B7A5A":"#E0DBD3",color:active.length>0?"#FFF":"#A09888",fontSize:13,fontWeight:600,cursor:active.length>0?"pointer":"default",display:"flex",alignItems:"center",justifyContent:"center",gap:5}}>
+        {I.check} {saving?"Saving...":editingRoute?"Update route":"Save route"}</button>
+      {active.length>10&&<div style={{fontSize:10,color:"#B04040",textAlign:"center",marginTop:6}}>Google Maps supports max ~10 waypoints</div>}
     </div></div>;
 }
 
