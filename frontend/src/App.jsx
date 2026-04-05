@@ -27,6 +27,7 @@ const I = {
   clock:<svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>,
   plus:<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>,
   chevron:<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="9 18 15 12 9 6"/></svg>,
+  refresh:<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="23 4 23 10 17 10"/><path d="M20.49 15a9 9 0 11-2.12-9.36L23 10"/></svg>,
 };
 const ib = (onClick,icon,color="#9E978C",bg="#FFF",border="#E8E3DB") =>
   <button onClick={onClick} style={{width:28,height:28,borderRadius:"50%",border:`1px solid ${border}`,background:bg,cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center",color,flexShrink:0,padding:0}}>{icon}</button>;
@@ -53,7 +54,9 @@ function EditModal({place,onClose,onSaved}) {
 }
 
 // ── Detail View (Instagram-style floating modal) ─────────
-function DetailView({place,onClose,onDelete,onEdit,routeStopIds,onPrev,onNext}) {
+function DetailView({place,onClose,onDelete,onEdit,routeStopIds,onPrev,onNext,onRefresh}) {
+  const [refreshing,setRefreshing]=useState(false);
+  const doRefresh=async()=>{if(!onRefresh)return;setRefreshing(true);await onRefresh(place.id);setRefreshing(false);};
   const mapsUrl = place.google_maps_url||`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(place.name)}&query_place_id=${place.google_place_id||""}`;
   const exploreUrl = `https://www.google.com/search?tbm=isch&q=${encodeURIComponent(place.name+" "+place.city)}`;
   const inRoute = routeStopIds.includes(place.id);
@@ -97,6 +100,7 @@ function DetailView({place,onClose,onDelete,onEdit,routeStopIds,onPrev,onNext}) 
               <div style={{fontSize:11,color:"#9E978C"}}>{place.city||place.country}</div></div>
           </div>
           <div style={{display:"flex",gap:4,flexShrink:0}}>
+            {ib(doRefresh,refreshing?<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{animation:"spin 1s linear infinite"}}><polyline points="23 4 23 10 17 10"/><path d="M20.49 15a9 9 0 11-2.12-9.36L23 10"/></svg>:I.refresh,"#2870A8","#F0F6FB","#D4E3F0")}
             {ib(onEdit,I.edit)}
             {ib(()=>window.open(mapsUrl,"_blank"),I.gmaps)}
             {ib(()=>onDelete(place.id),I.trash,"#B04040","#FDF6F6","#E8D4D4")}
@@ -433,6 +437,7 @@ export default function App() {
   const handleSave=p=>setPlaces(prev=>[p,...prev]);
   const handleDelete=async id=>{try{await api(`/places/${id}`,{method:"DELETE"});setPlaces(prev=>prev.filter(p=>p.id!==id));setDetail(null);}catch(e){console.error(e);}};
   const handleEdited=u=>{setPlaces(prev=>prev.map(p=>p.id===u.id?u:p));if(detail?.id===u.id)setDetail(u);};
+  const handleRefresh=async id=>{try{const u=await api(`/places/${id}/refresh`,{method:"POST"});setPlaces(prev=>prev.map(p=>p.id===u.id?u:p));setDetail(u);}catch(e){console.error(e);}};
   const handleDeleteRoute=async id=>{try{await api(`/routes/${id}`,{method:"DELETE"});setRoutes(prev=>prev.filter(r=>r.id!==id));}catch(e){console.error(e);}};
   const handleRenameRoute=async(id,newName)=>{try{await api(`/routes/${id}`,{method:"PUT",body:JSON.stringify({name:newName})});setRoutes(prev=>prev.map(r=>r.id===id?{...r,name:newName}:r));}catch(e){console.error(e);}};
   const locLabel=filters.city||filters.country||null;
@@ -440,7 +445,7 @@ export default function App() {
   const showTripBar=tab==="places"&&locLabel&&fp.length>1&&!detail&&!routePlanner;
 
   return <div style={{width:"100vw",height:"100vh",overflow:"hidden",background:"#FAFAF7",fontFamily:"'DM Sans',sans-serif",display:"flex",flexDirection:"column"}}>
-    <style>{`@keyframes fadeIn{from{opacity:0}to{opacity:1}}@keyframes slideIn{from{opacity:0;transform:translateY(-5px)}to{opacity:1;transform:translateY(0)}}@keyframes slideUp{from{transform:translateY(100%)}to{transform:translateY(0)}}`}</style>
+    <style>{`@keyframes fadeIn{from{opacity:0}to{opacity:1}}@keyframes slideIn{from{opacity:0;transform:translateY(-5px)}to{opacity:1;transform:translateY(0)}}@keyframes slideUp{from{transform:translateY(100%)}to{transform:translateY(0)}}@keyframes spin{from{transform:rotate(0deg)}to{transform:rotate(360deg)}}`}</style>
 
     {/* Header */}
     <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",padding:"9px 14px",flexShrink:0,background:"#FEFDFB",borderBottom:".5px solid #EDE9E3"}}>
@@ -488,6 +493,7 @@ export default function App() {
     {detail&&(()=>{const idx=fp.findIndex(p=>p.id===detail.id);return <DetailView place={detail} onClose={()=>setDetail(null)} onDelete={handleDelete} onEdit={()=>setEditPlace(detail)} routeStopIds={routeStopIds}
       onPrev={idx>0?()=>setDetail(fp[idx-1]):null}
       onNext={idx<fp.length-1&&idx>=0?()=>setDetail(fp[idx+1]):null}
+      onRefresh={handleRefresh}
     />;})()}
     {editPlace&&<EditModal place={editPlace} onClose={()=>setEditPlace(null)} onSaved={handleEdited}/>}
 
