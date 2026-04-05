@@ -85,10 +85,11 @@ export default function App() {
       </div>
     :<RoutesTab routes={routes} onEdit={r=>setRoutePlanner({initialStops:r.stops,editingRoute:r})} onDelete={handleDeleteRoute} onNew={()=>setRoutePlanner({initialStops:[]})} onRename={handleRenameRoute}/>}
 
-    {detail&&(()=>{const idx=fp.findIndex(p=>p.id===detail.id);return <DetailView place={detail} onClose={()=>setDetail(null)} onDelete={handleDelete} onEdit={()=>setEditPlace(detail)} routeStopIds={routeStopIds}
+    {detail&&(()=>{const idx=fp.findIndex(p=>p.id===detail.id);return <DetailView place={detail} onClose={()=>setDetail(null)} onDelete={handleDelete} onEdit={()=>setEditPlace(detail)} routeStopIds={routeStopIds} routes={routes}
       onPrev={idx>0?()=>setDetail(fp[idx-1]):null}
       onNext={idx<fp.length-1&&idx>=0?()=>setDetail(fp[idx+1]):null}
       onRefresh={handleRefresh}
+      onOpenRoute={r=>setRoutePlanner({initialStops:r.stops,editingRoute:r})}
     />;})()}
     {editPlace&&<EditModal place={editPlace} onClose={()=>setEditPlace(null)} onSaved={handleEdited}/>}
 

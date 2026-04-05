@@ -6,16 +6,24 @@ const isFood = (p) => [...(p.auto_tags||[]),...(p.tags||[])].some(t=>FOOD_TAGS.i
 
 const ReviewBtn = ({title,label,color,bg,onClick})=><a title={title} onClick={onClick} style={{width:34,height:34,borderRadius:8,border:"1px solid #EDE9E3",display:"flex",alignItems:"center",justifyContent:"center",cursor:"pointer",background:bg,flexShrink:0}}><span style={{fontWeight:800,fontSize:label.length>1?12:15,color}}>{label}</span></a>;
 
-export default function DetailView({place,onClose,onDelete,onEdit,routeStopIds,onPrev,onNext,onRefresh}) {
+export default function DetailView({place,onClose,onDelete,onEdit,routeStopIds,routes,onPrev,onNext,onRefresh,onOpenRoute}) {
   const [refreshing,setRefreshing]=useState(false);
   const [isMobile,setIsMobile]=useState(window.innerWidth<768);
+  const [showRouteList,setShowRouteList]=useState(false);
   const touchRef=useRef(null);
   useEffect(()=>{const h=()=>setIsMobile(window.innerWidth<768);window.addEventListener("resize",h);return()=>window.removeEventListener("resize",h);},[]);
   const doRefreshAction=async()=>{if(!onRefresh)return;setRefreshing(true);await onRefresh(place.id);setRefreshing(false);};
   const mapsUrl = place.google_maps_url||`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(place.name)}&query_place_id=${place.google_place_id||""}`;
   const exploreUrl = `https://www.google.com/search?tbm=isch&q=${encodeURIComponent(place.name+" "+place.city)}`;
   const inRoute = routeStopIds.includes(place.id);
+  const placeRoutes = (routes||[]).filter(r=>(r.stops||[]).includes(place.id));
   const q = encodeURIComponent(place.name+(place.city?` ${place.city}`:""));
+
+  const handleRouteBadgeClick=(e)=>{
+    e.stopPropagation();
+    if(placeRoutes.length===1&&onOpenRoute){onOpenRoute(placeRoutes[0]);}
+    else if(placeRoutes.length>1){setShowRouteList(!showRouteList);}
+  };
 
   const onTouchStart=e=>{touchRef.current={x:e.touches[0].clientX,y:e.touches[0].clientY};};
   const onTouchEnd=e=>{
@@ -33,11 +41,18 @@ export default function DetailView({place,onClose,onDelete,onEdit,routeStopIds,o
   const gmapsIcon = <svg width="18" height="18" viewBox="0 0 24 24" fill="none"><path d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7z" fill="#34A853"/><path d="M12 2v6.24l5.59 5.6C18.5 12.37 19 10.74 19 9c0-3.87-3.13-7-7-7z" fill="#FBBC04"/><path d="M12 2C8.13 2 5 5.13 5 9c0 1.74.5 3.37 1.41 4.84l5.59-5.6V2z" fill="#4285F4"/><circle cx="12" cy="9" r="2.75" fill="white"/></svg>;
 
   // ── Photo block ──
-  const photoBlock = (style) => <div style={{background:"#F0EDE8",position:"relative",overflow:"hidden",cursor:"pointer",...style}} onClick={()=>window.open(exploreUrl,"_blank")}>
+  const photoBlock = (style) => <div style={{background:"#F0EDE8",position:"relative",overflow:"hidden",...style}}>
     {place.photo&&<img src={place.photo} alt="" style={{width:"100%",height:"100%",objectFit:"cover",display:"block"}} onError={e=>{e.target.style.display="none"}}/>}
-    {inRoute&&<div style={{position:"absolute",top:10,left:10,display:"flex",alignItems:"center",gap:3,background:"rgba(27,122,90,.9)",padding:"3px 8px",borderRadius:5}}>
-      <span style={{color:"#FFF"}}>{I.route}</span><span style={{fontSize:12,color:"#FFF",fontWeight:600}}>In route</span></div>}
-    <div style={{position:"absolute",bottom:10,right:10,background:"rgba(0,0,0,.45)",backdropFilter:"blur(4px)",borderRadius:6,padding:"4px 8px",display:"flex",alignItems:"center",gap:4,color:"#FFF",fontSize:12}}>
+    {inRoute&&<div onClick={handleRouteBadgeClick} style={{position:"absolute",top:10,left:10,display:"flex",alignItems:"center",gap:3,background:"rgba(27,122,90,.9)",padding:"4px 10px",borderRadius:6,cursor:"pointer"}}>
+      <span style={{color:"#FFF"}}>{I.route}</span><span style={{fontSize:12,color:"#FFF",fontWeight:600}}>In route{placeRoutes.length>1?` (${placeRoutes.length})`:""}</span>
+    </div>}
+    {showRouteList&&placeRoutes.length>1&&<div style={{position:"absolute",top:42,left:10,background:"rgba(0,0,0,.75)",backdropFilter:"blur(8px)",borderRadius:8,padding:6,display:"flex",flexDirection:"column",gap:2,minWidth:160}}>
+      {placeRoutes.map(r=><div key={r.id} onClick={e=>{e.stopPropagation();if(onOpenRoute)onOpenRoute(r);}} style={{padding:"6px 10px",borderRadius:5,cursor:"pointer",fontSize:13,color:"#FFF",fontWeight:500}}
+        onMouseEnter={e=>e.target.style.background="rgba(255,255,255,.15)"} onMouseLeave={e=>e.target.style.background="transparent"}>
+        {r.name} <span style={{fontSize:11,color:"rgba(255,255,255,.6)"}}>· {(r.stop_details||[]).length} stops</span>
+      </div>)}
+    </div>}
+    <div onClick={()=>window.open(exploreUrl,"_blank")} style={{position:"absolute",bottom:10,right:10,background:"rgba(0,0,0,.45)",backdropFilter:"blur(4px)",borderRadius:6,padding:"5px 10px",display:"flex",alignItems:"center",gap:5,color:"#FFF",fontSize:12,cursor:"pointer"}}>
       {I.search} More photos
     </div>
   </div>;
