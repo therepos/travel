@@ -52,95 +52,133 @@ function EditModal({place,onClose,onSaved}) {
     </div></div>;
 }
 
-// ── Detail View (two-column, no scroll) ──────────────────
+// ── Detail View (Instagram-style floating modal) ─────────
 function DetailView({place,onClose,onDelete,onEdit,routeStopIds}) {
   const mapsUrl = place.google_maps_url||`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(place.name)}&query_place_id=${place.google_place_id||""}`;
   const exploreUrl = `https://www.google.com/search?tbm=isch&q=${encodeURIComponent(place.name+" "+place.city)}`;
   const inRoute = routeStopIds.includes(place.id);
   const Chip = ({children,color="#6B665C",bg="#F3F0EB"})=><span style={{padding:"2px 7px",borderRadius:5,fontSize:10.5,background:bg,color,whiteSpace:"nowrap"}}>{children}</span>;
+  const Label = ({children})=><div style={{fontSize:9,color:"#B5AFA5",textTransform:"uppercase",letterSpacing:".7px",fontWeight:600,marginBottom:3}}>{children}</div>;
 
-  return <div style={{position:"fixed",inset:0,zIndex:900,background:"#FAFAF7",animation:"fadeIn .15s",display:"flex",flexDirection:"column"}}>
-    {/* Header */}
-    <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",padding:"8px 14px",borderBottom:".5px solid #EDE9E3",background:"#FEFDFB",flexShrink:0}}>
-      <button onClick={onClose} style={{background:"none",border:"none",cursor:"pointer",padding:2,color:"#2C2A26",display:"flex",alignItems:"center",gap:4,fontSize:13,fontWeight:500}}>{I.back} Back</button>
-      <div onClick={onClose} style={{fontFamily:"'Instrument Serif',Georgia,serif",fontSize:15,color:"#2C2A26",cursor:"pointer"}}>Travel</div>
-      <div style={{display:"flex",gap:4}}>{ib(onEdit,I.edit)}{ib(()=>window.open(mapsUrl,"_blank"),I.gmaps)}{ib(()=>onDelete(place.id),I.trash,"#B04040","#FDF6F6","#E8D4D4")}</div>
-    </div>
+  return <div style={{position:"fixed",inset:0,zIndex:900,background:"rgba(0,0,0,.65)",animation:"fadeIn .15s",display:"flex",alignItems:"center",justifyContent:"center"}} onClick={e=>{if(e.target===e.currentTarget)onClose();}}>
+    {/* X close button */}
+    <button onClick={onClose} style={{position:"fixed",top:14,right:14,zIndex:910,width:36,height:36,borderRadius:"50%",border:"none",background:"transparent",cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center",color:"#FFF"}}>
+      <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+    </button>
 
-    {/* Two column body */}
-    <div style={{display:"flex",flex:1,overflow:"hidden"}}>
-      {/* LEFT: photo + address/map */}
-      <div style={{flex:3,display:"flex",flexDirection:"column",borderRight:".5px solid #EDE9E3"}}>
-        {/* Photo */}
-        <div style={{flex:3,background:"#F0EDE8",position:"relative",minHeight:0,overflow:"hidden"}}>
-          {place.photo&&<img src={place.photo} alt="" style={{width:"100%",height:"100%",objectFit:"cover",display:"block"}} onError={e=>{e.target.style.display="none"}}/>}
-          {inRoute&&<div style={{position:"absolute",top:8,left:8,display:"flex",alignItems:"center",gap:3,background:"rgba(27,122,90,.9)",padding:"3px 8px",borderRadius:5}}>
-            <span style={{color:"#FFF"}}>{I.route}</span><span style={{fontSize:10,color:"#FFF",fontWeight:600}}>In route</span></div>}
-          <div style={{position:"absolute",bottom:0,left:0,right:0,padding:"14px 12px 8px",background:"linear-gradient(transparent,rgba(0,0,0,.5))"}}>
-            <div style={{fontFamily:"'Instrument Serif',Georgia,serif",fontSize:18,color:"#FFF",textShadow:"0 1px 3px rgba(0,0,0,.3)"}}>{place.name}</div>
-            <div style={{display:"flex",alignItems:"center",gap:6,marginTop:3}}>
-              {place.rating>0&&<div style={{display:"flex",alignItems:"center",gap:3,background:"rgba(0,0,0,.3)",padding:"2px 6px",borderRadius:4}}>
-                {I.star}<span style={{fontSize:11,color:"#FFF",fontWeight:500}}>{place.rating}</span>
-                {place.rating_count>0&&<span style={{fontSize:9,color:"rgba(255,255,255,.7)"}}>({place.rating_count>999?`${(place.rating_count/1000).toFixed(1)}k`:place.rating_count})</span>}
-              </div>}
-              {place.price_level&&<span style={{fontSize:11,color:"rgba(255,255,255,.8)",fontWeight:500}}>{place.price_level}</span>}
-            </div>
-          </div>
-        </div>
-        {/* Bottom: address + map */}
-        <div style={{flex:2,display:"flex",borderTop:".5px solid #EDE9E3",minHeight:0}}>
-          <div style={{flex:1,padding:"8px 10px",display:"flex",flexDirection:"column",gap:6,overflow:"hidden",fontSize:12}}>
-            <div><div style={{fontSize:9,color:"#B5AFA5",textTransform:"uppercase",letterSpacing:".7px",fontWeight:600,marginBottom:2}}>Address</div>
-              <div style={{color:"#2C2A26",lineHeight:1.35}}>{place.address}</div></div>
-            {place.phone&&<div><div style={{fontSize:9,color:"#B5AFA5",textTransform:"uppercase",letterSpacing:".7px",fontWeight:600,marginBottom:2}}>Contact</div>
-              <div style={{display:"flex",alignItems:"center",gap:5,color:"#2C2A26"}}><span style={{color:"#9E978C"}}>{I.phone}</span>{place.phone}</div>
-              {place.website&&<div style={{display:"flex",alignItems:"center",gap:5,color:"#2870A8",marginTop:2}}><span style={{color:"#2870A8"}}>{I.web}</span><a href={place.website} target="_blank" rel="noopener" style={{color:"#2870A8",textDecoration:"none",fontSize:12}}>{place.website.replace(/^https?:\/\/(www\.)?/,"").split("/")[0]}</a></div>}
-            </div>}
-            {place.hours&&<div><div style={{fontSize:9,color:"#B5AFA5",textTransform:"uppercase",letterSpacing:".7px",fontWeight:600,marginBottom:2}}>Hours</div>
-              <div style={{color:"#2C2A26",lineHeight:1.3}}>{place.hours.split("|")[0].trim()}</div></div>}
-          </div>
-          {/* Static map */}
-          <div style={{flex:1,borderLeft:".5px solid #EDE9E3",background:"#EBE7DE",overflow:"hidden",position:"relative"}}>
-            <img src={`/api/staticmap?lat=${place.lat}&lng=${place.lng}&zoom=15&w=400&h=300`} alt="Map" style={{width:"100%",height:"100%",objectFit:"cover"}} onError={e=>{e.target.style.display="none"}}/>
-          </div>
-        </div>
+    {/* Modal card */}
+    <div style={{width:"min(92vw, 960px)",height:"min(88vh, 640px)",background:"#FEFDFB",borderRadius:6,overflow:"hidden",display:"flex",animation:"fadeIn .2s",boxShadow:"0 20px 60px rgba(0,0,0,.3)"}}>
+      {/* LEFT: photo fills entire left half */}
+      <div style={{flex:1,background:"#F0EDE8",position:"relative",overflow:"hidden",minWidth:0}}>
+        {place.photo&&<img src={place.photo} alt="" style={{width:"100%",height:"100%",objectFit:"cover",display:"block"}} onError={e=>{e.target.style.display="none"}}/>}
+        {inRoute&&<div style={{position:"absolute",top:10,left:10,display:"flex",alignItems:"center",gap:3,background:"rgba(27,122,90,.9)",padding:"3px 8px",borderRadius:5}}>
+          <span style={{color:"#FFF"}}>{I.route}</span><span style={{fontSize:10,color:"#FFF",fontWeight:600}}>In route</span></div>}
       </div>
 
-      {/* RIGHT: details */}
-      <div style={{flex:2,padding:"10px 14px",display:"flex",flexDirection:"column",gap:8,overflow:"hidden"}}>
-        {/* Tags */}
-        <div><div style={{fontSize:9,color:"#B5AFA5",textTransform:"uppercase",letterSpacing:".7px",fontWeight:600,marginBottom:3}}>Tags</div>
-          <div style={{display:"flex",gap:3,flexWrap:"wrap"}}>
-            {(place.tags||[]).map(t=><span key={t} style={{padding:"2px 8px",borderRadius:10,fontSize:11,background:`${TAG_COLORS[t]}10`,color:TAG_COLORS[t],border:`1px solid ${TAG_COLORS[t]}20`}}>{t}</span>)}
-            {(place.auto_tags||[]).map(t=><Chip key={t}>{t}</Chip>)}
-          </div></div>
+      {/* RIGHT: details panel */}
+      <div style={{flex:1,display:"flex",flexDirection:"column",minWidth:0,borderLeft:"1px solid #EDE9E3"}}>
+        {/* Header row */}
+        <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",padding:"12px 16px",borderBottom:"1px solid #EDE9E3",flexShrink:0}}>
+          <div style={{display:"flex",alignItems:"center",gap:8,minWidth:0,flex:1}}>
+            <div style={{width:32,height:32,borderRadius:8,overflow:"hidden",flexShrink:0,background:"#F0EDE8"}}>
+              {place.photo&&<img src={place.photo} alt="" style={{width:"100%",height:"100%",objectFit:"cover"}}/>}
+            </div>
+            <div style={{minWidth:0}}><div style={{fontSize:13,fontWeight:600,color:"#2C2A26",whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis"}}>{place.name}</div>
+              <div style={{fontSize:11,color:"#9E978C"}}>{place.city||place.country}</div></div>
+          </div>
+          <div style={{display:"flex",gap:4,flexShrink:0}}>
+            {ib(onEdit,I.edit)}
+            {ib(()=>window.open(mapsUrl,"_blank"),I.gmaps)}
+            {ib(()=>onDelete(place.id),I.trash,"#B04040","#FDF6F6","#E8D4D4")}
+          </div>
+        </div>
 
-        {/* Editorial summary */}
-        {place.editorial_summary&&<div><div style={{fontSize:9,color:"#B5AFA5",textTransform:"uppercase",letterSpacing:".7px",fontWeight:600,marginBottom:3}}>About</div>
-          <div style={{fontSize:12,color:"#6B665C",lineHeight:1.45,fontStyle:"italic",paddingLeft:8,borderLeft:"2px solid #E0DBD3"}}>{place.editorial_summary}</div></div>}
+        {/* Scrollable content */}
+        <div style={{flex:1,overflowY:"auto",padding:"14px 16px",display:"flex",flexDirection:"column",gap:12}}>
+          {/* Name + rating block */}
+          <div>
+            <div style={{fontFamily:"'Instrument Serif',Georgia,serif",fontSize:20,color:"#2C2A26",lineHeight:1.2}}>{place.name}</div>
+            <div style={{display:"flex",alignItems:"center",gap:8,marginTop:4}}>
+              {place.rating>0&&<div style={{display:"flex",alignItems:"center",gap:3}}>
+                {I.star}<span style={{fontSize:12,color:"#854F0B",fontWeight:500}}>{place.rating}</span>
+                {place.rating_count>0&&<span style={{fontSize:11,color:"#B5AFA5"}}>({place.rating_count>999?`${(place.rating_count/1000).toFixed(1)}k`:place.rating_count})</span>}
+              </div>}
+              {place.price_level&&<span style={{fontSize:12,color:"#6B665C",fontWeight:500}}>{place.price_level}</span>}
+            </div>
+          </div>
 
-        {/* Dining */}
-        {(place.dining||[]).length>0&&<div><div style={{fontSize:9,color:"#B5AFA5",textTransform:"uppercase",letterSpacing:".7px",fontWeight:600,marginBottom:3}}>Dining</div>
-          <div style={{display:"flex",gap:3,flexWrap:"wrap"}}>{place.dining.map(d=><Chip key={d} color="#1B7A5A" bg="#1B7A5A0C">{d}</Chip>)}</div></div>}
+          {/* Tags */}
+          {((place.tags||[]).length>0||(place.auto_tags||[]).length>0)&&<div>
+            <Label>Tags</Label>
+            <div style={{display:"flex",gap:4,flexWrap:"wrap"}}>
+              {(place.tags||[]).map(t=><span key={t} style={{padding:"3px 9px",borderRadius:10,fontSize:11,background:`${TAG_COLORS[t]}10`,color:TAG_COLORS[t],border:`1px solid ${TAG_COLORS[t]}20`}}>{t}</span>)}
+              {(place.auto_tags||[]).map(t=><Chip key={t}>{t}</Chip>)}
+            </div>
+          </div>}
 
-        {/* Serves */}
-        {(place.serves||[]).length>0&&<div><div style={{fontSize:9,color:"#B5AFA5",textTransform:"uppercase",letterSpacing:".7px",fontWeight:600,marginBottom:3}}>Serves</div>
-          <div style={{display:"flex",gap:3,flexWrap:"wrap"}}>{place.serves.map(s=><Chip key={s}>{s}</Chip>)}</div></div>}
+          {/* Editorial summary */}
+          {place.editorial_summary&&<div>
+            <Label>About</Label>
+            <div style={{fontSize:12,color:"#6B665C",lineHeight:1.5,fontStyle:"italic",paddingLeft:10,borderLeft:"2px solid #E0DBD3"}}>{place.editorial_summary}</div>
+          </div>}
 
-        {/* Amenities */}
-        {(place.amenities||[]).length>0&&<div><div style={{fontSize:9,color:"#B5AFA5",textTransform:"uppercase",letterSpacing:".7px",fontWeight:600,marginBottom:3}}>Amenities</div>
-          <div style={{display:"flex",gap:3,flexWrap:"wrap"}}>{place.amenities.map(a=><Chip key={a} color="#7255A0" bg="#7255A008">{a}</Chip>)}</div></div>}
+          {/* Address */}
+          {place.address&&<div>
+            <Label>Address</Label>
+            <div style={{fontSize:12,color:"#2C2A26",lineHeight:1.4}}>{place.address}</div>
+          </div>}
 
-        {/* Notes */}
-        {place.notes&&<div style={{fontSize:12,color:"#6B665C",lineHeight:1.4,padding:"7px 9px",background:"#F7F5F1",borderRadius:6}}>
-          <span style={{fontWeight:600,color:"#2C2A26"}}>Note:</span> {place.notes}</div>}
+          {/* Contact */}
+          {(place.phone||place.website)&&<div>
+            <Label>Contact</Label>
+            {place.phone&&<div style={{display:"flex",alignItems:"center",gap:5,color:"#2C2A26",fontSize:12}}><span style={{color:"#9E978C"}}>{I.phone}</span>{place.phone}</div>}
+            {place.website&&<div style={{display:"flex",alignItems:"center",gap:5,color:"#2870A8",marginTop:3}}><span style={{color:"#2870A8"}}>{I.web}</span><a href={place.website} target="_blank" rel="noopener" style={{color:"#2870A8",textDecoration:"none",fontSize:12,wordBreak:"break-all"}}>{place.website.replace(/^https?:\/\/(www\.)?/,"").split("/")[0]}</a></div>}
+          </div>}
 
-        {/* Bottom: location + explore */}
-        <div style={{marginTop:"auto",display:"flex",alignItems:"center",justifyContent:"space-between",paddingTop:6,borderTop:".5px solid #EDE9E3"}}>
+          {/* Hours */}
+          {place.hours&&<div>
+            <Label>Hours</Label>
+            <div style={{fontSize:12,color:"#2C2A26",lineHeight:1.4}}>{place.hours.split("|").map((h,i)=><div key={i}>{h.trim()}</div>)}</div>
+          </div>}
+
+          {/* Dining */}
+          {(place.dining||[]).length>0&&<div>
+            <Label>Dining</Label>
+            <div style={{display:"flex",gap:4,flexWrap:"wrap"}}>{place.dining.map(d=><Chip key={d} color="#1B7A5A" bg="#1B7A5A0C">{d}</Chip>)}</div>
+          </div>}
+
+          {/* Serves */}
+          {(place.serves||[]).length>0&&<div>
+            <Label>Serves</Label>
+            <div style={{display:"flex",gap:4,flexWrap:"wrap"}}>{place.serves.map(s=><Chip key={s}>{s}</Chip>)}</div>
+          </div>}
+
+          {/* Amenities */}
+          {(place.amenities||[]).length>0&&<div>
+            <Label>Amenities</Label>
+            <div style={{display:"flex",gap:4,flexWrap:"wrap"}}>{place.amenities.map(a=><Chip key={a} color="#7255A0" bg="#7255A008">{a}</Chip>)}</div>
+          </div>}
+
+          {/* Notes */}
+          {place.notes&&<div style={{fontSize:12,color:"#6B665C",lineHeight:1.4,padding:"8px 10px",background:"#F7F5F1",borderRadius:6}}>
+            <span style={{fontWeight:600,color:"#2C2A26"}}>Note:</span> {place.notes}</div>}
+
+          {/* Map */}
+          <div style={{borderRadius:8,overflow:"hidden",border:"1px solid #EDE9E3",flexShrink:0}}>
+            <img src={`/api/staticmap?lat=${place.lat}&lng=${place.lng}&zoom=15&w=500&h=200`} alt="Map" style={{width:"100%",height:140,objectFit:"cover",display:"block"}} onError={e=>{e.target.style.display="none"}}/>
+          </div>
+        </div>
+
+        {/* Bottom bar */}
+        <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",padding:"10px 16px",borderTop:"1px solid #EDE9E3",flexShrink:0,background:"#FEFDFB"}}>
           <div><div style={{fontSize:11,color:"#9E978C"}}>{place.region} · {place.country}{place.city?` · ${place.city}`:""}</div>
             <div style={{fontSize:10,color:"#B5AFA5"}}>Saved {place.saved}</div></div>
-          <button onClick={()=>window.open(exploreUrl,"_blank")} style={{display:"flex",alignItems:"center",gap:4,padding:"4px 9px",borderRadius:6,border:"1px solid #E8E3DB",background:"#FFF",cursor:"pointer",fontSize:11,color:"#6B665C",fontWeight:500}}>
-            {I.explore} Explore</button>
+          <div style={{display:"flex",gap:5}}>
+            <button onClick={()=>window.open(exploreUrl,"_blank")} style={{display:"flex",alignItems:"center",gap:4,padding:"5px 10px",borderRadius:6,border:"1px solid #E8E3DB",background:"#FFF",cursor:"pointer",fontSize:11,color:"#6B665C",fontWeight:500}}>
+              {I.explore} Explore</button>
+            <button onClick={()=>window.open(mapsUrl,"_blank")} style={{display:"flex",alignItems:"center",gap:4,padding:"5px 10px",borderRadius:6,border:"none",background:"#1B7A5A",cursor:"pointer",fontSize:11,color:"#FFF",fontWeight:600}}>
+              {I.gmaps} Open Maps</button>
+          </div>
         </div>
       </div>
     </div>
