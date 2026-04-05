@@ -1,14 +1,14 @@
 services:
-  travel:
+  wanderlust:
     image: ghcr.io/therepos/travel:latest
-    container_name: travel
+    container_name: wanderlust
     restart: unless-stopped
     ports:
       - "8099:8000"
     volumes:
-      - travel-data:/data
+      - wanderlust-data:/data
     environment:
       - GOOGLE_PLACES_API_KEY=${GOOGLE_PLACES_API_KEY}
 
 volumes:
-  travel-data:
+  wanderlust-data:
