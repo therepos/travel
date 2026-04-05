@@ -1,6 +1,6 @@
 services:
   wanderlust:
-    image: ghcr.io/therepos/travel:latest
+    image: ghcr.io/therepos/wanderlust:latest
     container_name: wanderlust
     restart: unless-stopped
     ports:
