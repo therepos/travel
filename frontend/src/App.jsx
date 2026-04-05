@@ -53,7 +53,7 @@ function EditModal({place,onClose,onSaved}) {
 }
 
 // ── Detail View (Instagram-style floating modal) ─────────
-function DetailView({place,onClose,onDelete,onEdit,routeStopIds}) {
+function DetailView({place,onClose,onDelete,onEdit,routeStopIds,onPrev,onNext}) {
   const mapsUrl = place.google_maps_url||`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(place.name)}&query_place_id=${place.google_place_id||""}`;
   const exploreUrl = `https://www.google.com/search?tbm=isch&q=${encodeURIComponent(place.name+" "+place.city)}`;
   const inRoute = routeStopIds.includes(place.id);
@@ -65,6 +65,16 @@ function DetailView({place,onClose,onDelete,onEdit,routeStopIds}) {
     <button onClick={onClose} style={{position:"fixed",top:14,right:14,zIndex:910,width:36,height:36,borderRadius:"50%",border:"none",background:"transparent",cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center",color:"#FFF"}}>
       <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
     </button>
+
+    {/* Left arrow */}
+    {onPrev&&<button onClick={e=>{e.stopPropagation();onPrev();}} style={{position:"fixed",left:14,top:"50%",transform:"translateY(-50%)",zIndex:910,width:40,height:40,borderRadius:"50%",border:"none",background:"rgba(255,255,255,.15)",cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center",color:"#FFF",backdropFilter:"blur(4px)"}}>
+      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><polyline points="15 18 9 12 15 6"/></svg>
+    </button>}
+
+    {/* Right arrow */}
+    {onNext&&<button onClick={e=>{e.stopPropagation();onNext();}} style={{position:"fixed",right:14,top:"50%",transform:"translateY(-50%)",zIndex:910,width:40,height:40,borderRadius:"50%",border:"none",background:"rgba(255,255,255,.15)",cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center",color:"#FFF",backdropFilter:"blur(4px)"}}>
+      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><polyline points="9 6 15 12 9 18"/></svg>
+    </button>}
 
     {/* Modal card */}
     <div style={{width:"min(92vw, 960px)",height:"min(88vh, 640px)",background:"#FEFDFB",borderRadius:6,overflow:"hidden",display:"flex",animation:"fadeIn .2s",boxShadow:"0 20px 60px rgba(0,0,0,.3)"}}>
@@ -302,26 +312,30 @@ function RoutePlanner({allPlaces,initialStops,editingRoute,onClose,onSaved}) {
     }catch(e){console.error(e);setSaving(false);}
   };
 
-  return <div style={{position:"fixed",inset:0,zIndex:1000,background:"rgba(0,0,0,.2)",backdropFilter:"blur(4px)",display:"flex",alignItems:"flex-end",justifyContent:"center",animation:"fadeIn .2s"}} onClick={e=>{if(e.target===e.currentTarget)onClose();}}>
-    <div style={{width:"100%",maxWidth:500,background:"#FEFDFB",borderRadius:"20px 20px 0 0",padding:"16px 16px 24px",maxHeight:"85vh",display:"flex",flexDirection:"column",animation:"slideUp .3s cubic-bezier(.4,0,.2,1)",boxShadow:"0 -8px 40px rgba(0,0,0,.1)"}}>
-      <div style={{width:36,height:4,borderRadius:2,background:"#DDD8D0",margin:"0 auto 12px"}}/>
+  return <div style={{position:"fixed",inset:0,zIndex:1000,background:"rgba(0,0,0,.65)",display:"flex",alignItems:"center",justifyContent:"center",animation:"fadeIn .2s"}} onClick={e=>{if(e.target===e.currentTarget)onClose();}}>
+    {/* X close button */}
+    <button onClick={onClose} style={{position:"fixed",top:14,right:14,zIndex:1010,width:36,height:36,borderRadius:"50%",border:"none",background:"transparent",cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center",color:"#FFF"}}>
+      <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+    </button>
+    <div style={{width:"min(92vw, 520px)",maxHeight:"min(88vh, 640px)",background:"#FEFDFB",borderRadius:8,display:"flex",flexDirection:"column",animation:"fadeIn .2s",boxShadow:"0 20px 60px rgba(0,0,0,.3)",overflow:"hidden"}}>
       {/* Route name */}
-      <div style={{display:"flex",alignItems:"center",gap:8,marginBottom:10}}>
+      <div style={{display:"flex",alignItems:"center",gap:8,padding:"14px 16px",borderBottom:"1px solid #EDE9E3",flexShrink:0}}>
         <div style={{width:34,height:34,borderRadius:10,background:"#1B7A5A0F",display:"flex",alignItems:"center",justifyContent:"center",color:"#1B7A5A",flexShrink:0}}>{I.route}</div>
-        <input value={name} onChange={e=>setName(e.target.value)} style={{flex:1,fontFamily:"'Instrument Serif',Georgia,serif",fontSize:18,color:"#2C2A26",border:"none",background:"transparent",outline:"none",padding:0}}/>
+        <input value={name} onChange={e=>setName(e.target.value)} style={{flex:1,fontFamily:"'Instrument Serif',Georgia,serif",fontSize:18,color:"#2C2A26",border:"none",background:"transparent",outline:"none",padding:0}} placeholder="Route name..."/>
         <span style={{fontSize:11,color:"#9E978C",flexShrink:0}}>{active.length} stops</span>
       </div>
-      {/* Search within saves */}
-      <input value={searchQ} onChange={e=>setSearchQ(e.target.value)} placeholder="Search your saves to add..." style={{width:"100%",padding:"8px 10px",borderRadius:7,border:"1.5px solid #E8E3DB",background:"#FFF",color:"#2C2A26",fontSize:12,outline:"none",marginBottom:6,boxSizing:"border-box"}}/>
-      {/* Filters */}
-      <div style={{display:"flex",gap:3,flexWrap:"wrap",marginBottom:6}}>
-        {Object.entries(regionCounts).sort((a,b)=>b[1]-a[1]).map(([r,n])=><Fb key={r} label={`${r} (${n})`} active={fRegion===r} onClick={()=>{setFRegion(fRegion===r?null:r);setFCountry(null);}}/>)}
+      {/* Search + Filters */}
+      <div style={{padding:"10px 16px 6px",flexShrink:0}}>
+        <input value={searchQ} onChange={e=>setSearchQ(e.target.value)} placeholder="Search your saves to add..." style={{width:"100%",padding:"8px 10px",borderRadius:7,border:"1.5px solid #E8E3DB",background:"#FFF",color:"#2C2A26",fontSize:12,outline:"none",marginBottom:6,boxSizing:"border-box"}}/>
+        <div style={{display:"flex",gap:3,flexWrap:"wrap"}}>
+          {Object.entries(regionCounts).sort((a,b)=>b[1]-a[1]).map(([r,n])=><Fb key={r} label={`${r} (${n})`} active={fRegion===r} onClick={()=>{setFRegion(fRegion===r?null:r);setFCountry(null);}}/>)}
+        </div>
+        {fRegion&&Object.keys(countryCounts).length>1&&<div style={{display:"flex",gap:3,flexWrap:"wrap",marginTop:4}}>
+          {Object.entries(countryCounts).sort((a,b)=>b[1]-a[1]).map(([c,n])=><Fb key={c} label={`${c} (${n})`} active={fCountry===c} color="#B8602E" onClick={()=>setFCountry(fCountry===c?null:c)}/>)}
+        </div>}
       </div>
-      {fRegion&&Object.keys(countryCounts).length>1&&<div style={{display:"flex",gap:3,flexWrap:"wrap",marginBottom:6}}>
-        {Object.entries(countryCounts).sort((a,b)=>b[1]-a[1]).map(([c,n])=><Fb key={c} label={`${c} (${n})`} active={fCountry===c} color="#B8602E" onClick={()=>setFCountry(fCountry===c?null:c)}/>)}
-      </div>}
       {/* Place list */}
-      <div style={{flex:1,overflowY:"auto",marginBottom:10}}>
+      <div style={{flex:1,overflowY:"auto",padding:"4px 16px 10px"}}>
         {filtered.map(place=>{
           const isSel=selected.includes(place.id);const num=isSel?selected.indexOf(place.id)+1:null;
           return <div key={place.id} onClick={()=>setSelected(p=>p.includes(place.id)?p.filter(x=>x!==place.id):[...p,place.id])} style={{display:"flex",alignItems:"center",gap:7,padding:"7px 8px",borderRadius:8,cursor:"pointer",border:`1.5px solid ${isSel?"#1B7A5A":"#ECE9E3"}`,background:isSel?"#1B7A5A06":"#FFF",marginBottom:4}}>
@@ -333,20 +347,29 @@ function RoutePlanner({allPlaces,initialStops,editingRoute,onClose,onSaved}) {
         })}
       </div>
       {/* Actions */}
-      <button onClick={saveRoute} disabled={active.length===0||saving} style={{width:"100%",padding:12,borderRadius:10,border:"none",background:active.length>0?"#1B7A5A":"#E0DBD3",color:active.length>0?"#FFF":"#A09888",fontSize:13,fontWeight:600,cursor:active.length>0?"pointer":"default",display:"flex",alignItems:"center",justifyContent:"center",gap:5}}>
-        {I.check} {saving?"Saving...":editingRoute?"Update route":"Save route"}</button>
-      {active.length>10&&<div style={{fontSize:10,color:"#B04040",textAlign:"center",marginTop:6}}>Google Maps supports max ~10 waypoints</div>}
+      <div style={{padding:"10px 16px 16px",borderTop:"1px solid #EDE9E3",flexShrink:0}}>
+        <button onClick={saveRoute} disabled={active.length===0||saving} style={{width:"100%",padding:12,borderRadius:10,border:"none",background:active.length>0?"#1B7A5A":"#E0DBD3",color:active.length>0?"#FFF":"#A09888",fontSize:13,fontWeight:600,cursor:active.length>0?"pointer":"default",display:"flex",alignItems:"center",justifyContent:"center",gap:5}}>
+          {I.check} {saving?"Saving...":editingRoute?"Update route":"Save route"}</button>
+        {active.length>10&&<div style={{fontSize:10,color:"#B04040",textAlign:"center",marginTop:6}}>Google Maps supports max ~10 waypoints</div>}
+      </div>
     </div></div>;
 }
 
 // ── Routes Tab ───────────────────────────────────────────
-function RoutesTab({routes,onEdit,onDelete,onRefresh,onNew}) {
+function RoutesTab({routes,onEdit,onDelete,onRefresh,onNew,onRename}) {
   const [searchQ,setSearchQ]=useState("");
+  const [editingId,setEditingId]=useState(null);
+  const [editName,setEditName]=useState("");
   const filtered=routes.filter(r=>{
     if(!searchQ)return true;
     const q=searchQ.toLowerCase();
     return r.name.toLowerCase().includes(q)||(r.stop_details||[]).some(s=>s.name.toLowerCase().includes(q));
   });
+  const startEdit=(e,r)=>{e.stopPropagation();setEditingId(r.id);setEditName(r.name);};
+  const saveEdit=async(id)=>{
+    if(editName.trim()&&onRename){await onRename(id,editName.trim());}
+    setEditingId(null);
+  };
   return <div style={{flex:1,display:"flex",flexDirection:"column",overflow:"hidden"}}>
     {/* Search + New bar */}
     <div style={{flexShrink:0,padding:"10px 14px",background:"#FEFDFB",borderBottom:".5px solid #EDE9E3",display:"flex",gap:6}}>
@@ -355,11 +378,18 @@ function RoutesTab({routes,onEdit,onDelete,onRefresh,onNew}) {
     </div>
     <div style={{flex:1,overflowY:"auto",padding:"8px 14px"}}>
       {filtered.length===0?<div style={{textAlign:"center",padding:"50px 20px",color:"#C4BDB2",fontSize:13}}>{routes.length===0?"No saved routes yet. Create one above!":"No matching routes"}</div>
-      :filtered.map(r=><div key={r.id} style={{border:"1px solid #ECE9E3",borderRadius:8,padding:"10px 12px",marginBottom:6,background:"#FFF",cursor:"pointer"}} onClick={()=>onEdit(r)}>
+      :filtered.map(r=><div key={r.id} style={{border:"1px solid #ECE9E3",borderRadius:8,padding:"10px 12px",marginBottom:6,background:"#FFF",cursor:"pointer"}} onClick={()=>{if(editingId!==r.id)onEdit(r);}}>
         <div style={{display:"flex",alignItems:"flex-start",justifyContent:"space-between",marginBottom:6}}>
-          <div><div style={{fontSize:14,fontWeight:500,color:"#2C2A26"}}>{r.name}</div>
-            <div style={{fontSize:11,color:"#9E978C",marginTop:1}}>{(r.stop_details||[]).length} stops · {r.updated}</div></div>
-          <div style={{display:"flex",gap:4}}>
+          <div style={{flex:1,minWidth:0}}>
+            {editingId===r.id
+              ?<input value={editName} onChange={e=>setEditName(e.target.value)} onKeyDown={e=>{if(e.key==="Enter")saveEdit(r.id);if(e.key==="Escape")setEditingId(null);}} onBlur={()=>saveEdit(r.id)} autoFocus onClick={e=>e.stopPropagation()} style={{fontSize:14,fontWeight:500,color:"#2C2A26",border:"1.5px solid #D4A574",borderRadius:5,padding:"2px 6px",outline:"none",width:"100%",boxSizing:"border-box",background:"#FFF"}}/>
+              :<div style={{display:"flex",alignItems:"center",gap:4}}>
+                <div style={{fontSize:14,fontWeight:500,color:"#2C2A26",whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis"}}>{r.name}</div>
+                <button onClick={e=>startEdit(e,r)} style={{background:"none",border:"none",cursor:"pointer",padding:2,color:"#B5AFA5",flexShrink:0,display:"flex"}}>{I.edit}</button>
+              </div>}
+            <div style={{fontSize:11,color:"#9E978C",marginTop:1}}>{(r.stop_details||[]).length} stops · {r.updated}</div>
+          </div>
+          <div style={{display:"flex",gap:4,flexShrink:0,marginLeft:8}}>
             {ib(e=>{e.stopPropagation();if(r.route_url)window.open(r.route_url,"_blank");},I.gmaps)}
             {ib(e=>{e.stopPropagation();onDelete(r.id);},I.trash,"#B04040","#FDF6F6","#E8D4D4")}
           </div>
@@ -404,7 +434,7 @@ export default function App() {
   const handleDelete=async id=>{try{await api(`/places/${id}`,{method:"DELETE"});setPlaces(prev=>prev.filter(p=>p.id!==id));setDetail(null);}catch(e){console.error(e);}};
   const handleEdited=u=>{setPlaces(prev=>prev.map(p=>p.id===u.id?u:p));if(detail?.id===u.id)setDetail(u);};
   const handleDeleteRoute=async id=>{try{await api(`/routes/${id}`,{method:"DELETE"});setRoutes(prev=>prev.filter(r=>r.id!==id));}catch(e){console.error(e);}};
-
+  const handleRenameRoute=async(id,newName)=>{try{await api(`/routes/${id}`,{method:"PUT",body:JSON.stringify({name:newName})});setRoutes(prev=>prev.map(r=>r.id===id?{...r,name:newName}:r));}catch(e){console.error(e);}};
   const locLabel=filters.city||filters.country||null;
   const routeStopIds=routes.flatMap(r=>r.stops||[]);
   const showTripBar=tab==="places"&&locLabel&&fp.length>1&&!detail&&!routePlanner;
@@ -452,10 +482,13 @@ export default function App() {
           </div>
         </div>)}
       </div>
-    :<RoutesTab routes={routes} onEdit={r=>setRoutePlanner({initialStops:r.stops,editingRoute:r})} onDelete={handleDeleteRoute} onRefresh={load} onNew={()=>setRoutePlanner({initialStops:[]})}/>}
+    :<RoutesTab routes={routes} onEdit={r=>setRoutePlanner({initialStops:r.stops,editingRoute:r})} onDelete={handleDeleteRoute} onRefresh={load} onNew={()=>setRoutePlanner({initialStops:[]})} onRename={handleRenameRoute}/>}
 
     {/* Detail */}
-    {detail&&<DetailView place={detail} onClose={()=>setDetail(null)} onDelete={handleDelete} onEdit={()=>setEditPlace(detail)} routeStopIds={routeStopIds}/>}
+    {detail&&(()=>{const idx=fp.findIndex(p=>p.id===detail.id);return <DetailView place={detail} onClose={()=>setDetail(null)} onDelete={handleDelete} onEdit={()=>setEditPlace(detail)} routeStopIds={routeStopIds}
+      onPrev={idx>0?()=>setDetail(fp[idx-1]):null}
+      onNext={idx<fp.length-1&&idx>=0?()=>setDetail(fp[idx+1]):null}
+    />;})()}
     {editPlace&&<EditModal place={editPlace} onClose={()=>setEditPlace(null)} onSaved={handleEdited}/>}
 
     {/* Trip prompt bar */}
