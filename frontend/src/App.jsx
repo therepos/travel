@@ -98,7 +98,8 @@ function DetailView({place,onClose,onDelete,onEdit,routeStopIds}) {
           {/* Name + rating block */}
           <div>
             <div style={{fontFamily:"'Instrument Serif',Georgia,serif",fontSize:20,color:"#2C2A26",lineHeight:1.2}}>{place.name}</div>
-            <div style={{display:"flex",alignItems:"center",gap:8,marginTop:4}}>
+            <div style={{display:"flex",alignItems:"center",gap:8,marginTop:4,flexWrap:"wrap"}}>
+              {place.place_type&&<span style={{fontSize:11,color:"#6B665C",background:"#F3F0EB",padding:"2px 7px",borderRadius:5}}>{place.place_type}</span>}
               {place.rating>0&&<div style={{display:"flex",alignItems:"center",gap:3}}>
                 {I.star}<span style={{fontSize:12,color:"#854F0B",fontWeight:500}}>{place.rating}</span>
                 {place.rating_count>0&&<span style={{fontSize:11,color:"#B5AFA5"}}>({place.rating_count>999?`${(place.rating_count/1000).toFixed(1)}k`:place.rating_count})</span>}
@@ -157,6 +158,29 @@ function DetailView({place,onClose,onDelete,onEdit,routeStopIds}) {
           {(place.amenities||[]).length>0&&<div>
             <Label>Amenities</Label>
             <div style={{display:"flex",gap:4,flexWrap:"wrap"}}>{place.amenities.map(a=><Chip key={a} color="#7255A0" bg="#7255A008">{a}</Chip>)}</div>
+          </div>}
+
+          {/* Payment */}
+          {(place.payment||[]).length>0&&<div>
+            <Label>Payment</Label>
+            <div style={{display:"flex",gap:4,flexWrap:"wrap"}}>{place.payment.map(p=><Chip key={p}>{p}</Chip>)}</div>
+          </div>}
+
+          {/* Reviews */}
+          {(place.reviews||[]).length>0&&<div>
+            <Label>Reviews</Label>
+            <div style={{display:"flex",flexDirection:"column",gap:8}}>
+              {place.reviews.map((r,i)=><div key={i} style={{padding:"8px 10px",background:"#F7F5F1",borderRadius:6}}>
+                <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:3}}>
+                  <span style={{fontSize:11,fontWeight:600,color:"#2C2A26"}}>{r.author||"Anonymous"}</span>
+                  <div style={{display:"flex",alignItems:"center",gap:3}}>
+                    {r.rating>0&&<>{I.star}<span style={{fontSize:11,color:"#854F0B"}}>{r.rating}</span></>}
+                    {r.time&&<span style={{fontSize:10,color:"#B5AFA5",marginLeft:4}}>{r.time}</span>}
+                  </div>
+                </div>
+                {r.text&&<div style={{fontSize:11.5,color:"#6B665C",lineHeight:1.45}}>{r.text.length>200?r.text.slice(0,200)+"…":r.text}</div>}
+              </div>)}
+            </div>
           </div>}
 
           {/* Notes */}
@@ -316,24 +340,37 @@ function RoutePlanner({allPlaces,initialStops,editingRoute,onClose,onSaved}) {
 }
 
 // ── Routes Tab ───────────────────────────────────────────
-function RoutesTab({routes,onEdit,onDelete,onRefresh}) {
-  return <div style={{flex:1,overflowY:"auto",padding:"8px 14px"}}>
-    {routes.length===0?<div style={{textAlign:"center",padding:"50px 20px",color:"#C4BDB2",fontSize:13}}>No saved routes yet. Plan a route from your places!</div>
-    :routes.map(r=><div key={r.id} style={{border:"1px solid #ECE9E3",borderRadius:8,padding:"10px 12px",marginBottom:6,background:"#FFF",cursor:"pointer"}} onClick={()=>onEdit(r)}>
-      <div style={{display:"flex",alignItems:"flex-start",justifyContent:"space-between",marginBottom:6}}>
-        <div><div style={{fontSize:14,fontWeight:500,color:"#2C2A26"}}>{r.name}</div>
-          <div style={{fontSize:11,color:"#9E978C",marginTop:1}}>{(r.stop_details||[]).length} stops · {r.updated}</div></div>
-        <div style={{display:"flex",gap:4}}>
-          {ib(e=>{e.stopPropagation();if(r.route_url)window.open(r.route_url,"_blank");},I.gmaps)}
-          {ib(e=>{e.stopPropagation();onDelete(r.id);},I.trash,"#B04040","#FDF6F6","#E8D4D4")}
+function RoutesTab({routes,onEdit,onDelete,onRefresh,onNew}) {
+  const [searchQ,setSearchQ]=useState("");
+  const filtered=routes.filter(r=>{
+    if(!searchQ)return true;
+    const q=searchQ.toLowerCase();
+    return r.name.toLowerCase().includes(q)||(r.stop_details||[]).some(s=>s.name.toLowerCase().includes(q));
+  });
+  return <div style={{flex:1,display:"flex",flexDirection:"column",overflow:"hidden"}}>
+    {/* Search + New bar */}
+    <div style={{flexShrink:0,padding:"10px 14px",background:"#FEFDFB",borderBottom:".5px solid #EDE9E3",display:"flex",gap:6}}>
+      <input value={searchQ} onChange={e=>setSearchQ(e.target.value)} placeholder="Search routes..." style={{flex:1,padding:"9px 12px",borderRadius:8,border:"1.5px solid #E8E3DB",background:"#FFF",color:"#2C2A26",fontSize:12,outline:"none"}} onFocus={e=>e.target.style.borderColor="#D4A574"} onBlur={e=>e.target.style.borderColor="#E8E3DB"}/>
+      <button onClick={onNew} style={{padding:"9px 14px",borderRadius:8,border:"none",background:"#B8602E",color:"#FFF",fontWeight:600,fontSize:12,cursor:"pointer",display:"flex",alignItems:"center",gap:4,flexShrink:0}}>{I.plus} New</button>
+    </div>
+    <div style={{flex:1,overflowY:"auto",padding:"8px 14px"}}>
+      {filtered.length===0?<div style={{textAlign:"center",padding:"50px 20px",color:"#C4BDB2",fontSize:13}}>{routes.length===0?"No saved routes yet. Create one above!":"No matching routes"}</div>
+      :filtered.map(r=><div key={r.id} style={{border:"1px solid #ECE9E3",borderRadius:8,padding:"10px 12px",marginBottom:6,background:"#FFF",cursor:"pointer"}} onClick={()=>onEdit(r)}>
+        <div style={{display:"flex",alignItems:"flex-start",justifyContent:"space-between",marginBottom:6}}>
+          <div><div style={{fontSize:14,fontWeight:500,color:"#2C2A26"}}>{r.name}</div>
+            <div style={{fontSize:11,color:"#9E978C",marginTop:1}}>{(r.stop_details||[]).length} stops · {r.updated}</div></div>
+          <div style={{display:"flex",gap:4}}>
+            {ib(e=>{e.stopPropagation();if(r.route_url)window.open(r.route_url,"_blank");},I.gmaps)}
+            {ib(e=>{e.stopPropagation();onDelete(r.id);},I.trash,"#B04040","#FDF6F6","#E8D4D4")}
+          </div>
         </div>
-      </div>
-      <div style={{display:"flex",alignItems:"center"}}>
-        <div style={{display:"flex"}}>{(r.stop_details||[]).slice(0,6).map((s,i)=><div key={s.id} style={{width:28,height:28,borderRadius:5,background:"#F0EDE8",border:"1.5px solid #FFF",marginLeft:i>0?-6:0,overflow:"hidden"}}>{s.photo&&<img src={s.photo} alt="" style={{width:"100%",height:"100%",objectFit:"cover"}}/>}</div>)}</div>
-        {(r.stop_details||[]).length>6&&<span style={{fontSize:10,color:"#B5AFA5",marginLeft:4}}>+{r.stop_details.length-6}</span>}
-        <span style={{marginLeft:"auto",color:"#C4BDB2"}}>{I.chevron}</span>
-      </div>
-    </div>)}
+        <div style={{display:"flex",alignItems:"center"}}>
+          <div style={{display:"flex"}}>{(r.stop_details||[]).slice(0,6).map((s,i)=><div key={s.id} style={{width:28,height:28,borderRadius:5,background:"#F0EDE8",border:"1.5px solid #FFF",marginLeft:i>0?-6:0,overflow:"hidden"}}>{s.photo&&<img src={s.photo} alt="" style={{width:"100%",height:"100%",objectFit:"cover"}}/>}</div>)}</div>
+          {(r.stop_details||[]).length>6&&<span style={{fontSize:10,color:"#B5AFA5",marginLeft:4}}>+{r.stop_details.length-6}</span>}
+          <span style={{marginLeft:"auto",color:"#C4BDB2"}}>{I.chevron}</span>
+        </div>
+      </div>)}
+    </div>
   </div>;
 }
 
@@ -384,7 +421,6 @@ export default function App() {
         <div style={{display:"flex",background:"#F3F0EB",borderRadius:7,padding:2}}>
           {["places","routes"].map(t=><button key={t} onClick={()=>setTab(t)} style={{padding:"4px 10px",borderRadius:5,border:"none",background:tab===t?"#FFF":"transparent",color:tab===t?"#2C2A26":"#A09888",fontSize:11,fontWeight:600,cursor:"pointer",boxShadow:tab===t?"0 1px 2px rgba(0,0,0,.05)":"none",textTransform:"capitalize"}}>{t}</button>)}
         </div>
-        {tab==="routes"&&<button onClick={()=>setRoutePlanner({initialStops:[]})} style={{padding:"4px 9px",borderRadius:6,border:"none",background:"#B8602E",color:"#FFF",fontSize:10,fontWeight:600,cursor:"pointer",display:"flex",alignItems:"center",gap:3}}>{I.plus}New</button>}
         <button onClick={()=>{setSearchOpen(!searchOpen);if(searchOpen)setSearchQ("");}} style={{width:28,height:28,borderRadius:"50%",border:"1px solid #E8E3DB",background:searchOpen?"#2C2A260A":"#FFF",cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center",color:searchOpen?"#2C2A26":"#9E978C"}}>{searchOpen?I.x:I.search}</button>
       </div>
     </div>
@@ -416,7 +452,7 @@ export default function App() {
           </div>
         </div>)}
       </div>
-    :<RoutesTab routes={routes} onEdit={r=>setRoutePlanner({initialStops:r.stops,editingRoute:r})} onDelete={handleDeleteRoute} onRefresh={load}/>}
+    :<RoutesTab routes={routes} onEdit={r=>setRoutePlanner({initialStops:r.stops,editingRoute:r})} onDelete={handleDeleteRoute} onRefresh={load} onNew={()=>setRoutePlanner({initialStops:[]})}/>}
 
     {/* Detail */}
     {detail&&<DetailView place={detail} onClose={()=>setDetail(null)} onDelete={handleDelete} onEdit={()=>setEditPlace(detail)} routeStopIds={routeStopIds}/>}

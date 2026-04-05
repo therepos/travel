@@ -53,6 +53,9 @@ def init_db():
             dining TEXT DEFAULT '[]',
             serves TEXT DEFAULT '[]',
             amenities TEXT DEFAULT '[]',
+            place_type TEXT DEFAULT '',
+            payment TEXT DEFAULT '[]',
+            reviews TEXT DEFAULT '[]',
             saved TEXT NOT NULL
         )
     """)
@@ -88,6 +91,9 @@ def init_db():
         ("serves", "TEXT DEFAULT '[]'"),
         ("amenities", "TEXT DEFAULT '[]'"),
         ("auto_tags", "TEXT DEFAULT '[]'"),
+        ("place_type", "TEXT DEFAULT ''"),
+        ("payment", "TEXT DEFAULT '[]'"),
+        ("reviews", "TEXT DEFAULT '[]'"),
     ]
     for col, typedef in migrations:
         if col not in existing:
@@ -121,6 +127,9 @@ class PlaceCreate(BaseModel):
     dining: list[str] = []
     serves: list[str] = []
     amenities: list[str] = []
+    place_type: str = ""
+    payment: list[str] = []
+    reviews: list[dict] = []
     saved: str = ""
 
 
@@ -272,8 +281,43 @@ def extract_hours(place):
     roh = place.get("regularOpeningHours", {})
     descs = roh.get("weekdayDescriptions", [])
     if descs:
-        return " | ".join(descs[:3])
+        return " | ".join(descs)
     return ""
+
+
+def extract_open_now(place):
+    coh = place.get("currentOpeningHours", {})
+    if "openNow" in coh:
+        return coh["openNow"]
+    roh = place.get("regularOpeningHours", {})
+    if "openNow" in roh:
+        return roh["openNow"]
+    return None
+
+
+def extract_payment(place):
+    po = place.get("paymentOptions", {})
+    p = []
+    if po.get("acceptsCreditCards"): p.append("credit card")
+    if po.get("acceptsDebitCards"): p.append("debit card")
+    if po.get("acceptsCashOnly"): p.append("cash only")
+    if po.get("acceptsNfc"): p.append("NFC/contactless")
+    return p
+
+
+def extract_reviews(place):
+    reviews = place.get("reviews", [])
+    out = []
+    for r in reviews[:3]:
+        text = r.get("text", {})
+        author = r.get("authorAttribution", {})
+        out.append({
+            "text": text.get("text", "") if isinstance(text, dict) else "",
+            "rating": r.get("rating", 0),
+            "author": author.get("displayName", ""),
+            "time": r.get("relativePublishTimeDescription", ""),
+        })
+    return out
 
 
 def extract_price_level(place):
@@ -289,10 +333,11 @@ def extract_price_level(place):
 SEARCH_FIELDS = ",".join([
     "places.id", "places.displayName", "places.formattedAddress",
     "places.location", "places.photos", "places.addressComponents",
-    "places.types", "places.googleMapsLinks",
+    "places.types", "places.primaryTypeDisplayName", "places.googleMapsLinks",
     "places.internationalPhoneNumber", "places.websiteUri",
     "places.rating", "places.userRatingCount", "places.priceLevel",
-    "places.regularOpeningHours", "places.editorialSummary",
+    "places.regularOpeningHours", "places.currentOpeningHours",
+    "places.editorialSummary",
     "places.dineIn", "places.delivery", "places.curbsidePickup",
     "places.reservable", "places.outdoorSeating",
     "places.servesBreakfast", "places.servesBrunch", "places.servesLunch",
@@ -302,7 +347,8 @@ SEARCH_FIELDS = ",".join([
     "places.accessibilityOptions", "places.restroom",
     "places.goodForChildren", "places.goodForGroups",
     "places.goodForWatchingSports", "places.liveMusic", "places.allowsDogs",
-    "places.parkingOptions",
+    "places.parkingOptions", "places.paymentOptions",
+    "places.reviews",
 ])
 
 
@@ -346,6 +392,7 @@ async def search_places(q: str = Query(..., min_length=1)):
             maps_url = f"https://www.google.com/maps/search/?api=1&query={dn.get('text','')}&query_place_id={p.get('id','')}"
 
         es = p.get("editorialSummary", {})
+        ptdn = p.get("primaryTypeDisplayName", {})
 
         results.append({
             "google_place_id": p.get("id", ""),
@@ -356,6 +403,7 @@ async def search_places(q: str = Query(..., min_length=1)):
             "lat": loc.get("latitude", 0), "lng": loc.get("longitude", 0),
             "photo": photo_url,
             "auto_tags": extract_auto_tags(p.get("types", [])),
+            "place_type": ptdn.get("text", "") if isinstance(ptdn, dict) else "",
             "google_maps_url": maps_url,
             "phone": p.get("internationalPhoneNumber", ""),
             "website": p.get("websiteUri", ""),
@@ -363,10 +411,13 @@ async def search_places(q: str = Query(..., min_length=1)):
             "rating_count": p.get("userRatingCount", 0),
             "price_level": extract_price_level(p),
             "hours": extract_hours(p),
+            "open_now": extract_open_now(p),
             "editorial_summary": es.get("text", "") if isinstance(es, dict) else "",
             "dining": extract_dining(p),
             "serves": extract_serves(p),
             "amenities": extract_amenities(p),
+            "payment": extract_payment(p),
+            "reviews": extract_reviews(p),
         })
     return {"results": results}
 
@@ -386,7 +437,7 @@ async def static_map(lat: float, lng: float, zoom: int = 15, w: int = 600, h: in
 
 # ── Places CRUD ───────────────────────────────────────────
 
-JSON_FIELDS = ["tags", "auto_tags", "dining", "serves", "amenities"]
+JSON_FIELDS = ["tags", "auto_tags", "dining", "serves", "amenities", "payment", "reviews"]
 
 def row_to_place(row):
     d = dict(row)
@@ -411,8 +462,9 @@ def create_place(place: PlaceCreate):
         """INSERT INTO places (name,address,country,city,district,region,lat,lng,
            photo,tags,auto_tags,notes,google_place_id,google_maps_url,
            phone,website,rating,rating_count,price_level,hours,
-           editorial_summary,dining,serves,amenities,saved)
-           VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)""",
+           editorial_summary,dining,serves,amenities,
+           place_type,payment,reviews,saved)
+           VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)""",
         (place.name, place.address, place.country, place.city, place.district,
          place.region, place.lat, place.lng, place.photo,
          json.dumps(place.tags), json.dumps(place.auto_tags),
@@ -420,7 +472,8 @@ def create_place(place: PlaceCreate):
          place.phone, place.website, place.rating, place.rating_count,
          place.price_level, place.hours, place.editorial_summary,
          json.dumps(place.dining), json.dumps(place.serves),
-         json.dumps(place.amenities), saved))
+         json.dumps(place.amenities), place.place_type,
+         json.dumps(place.payment), json.dumps(place.reviews), saved))
     conn.commit()
     row = conn.execute("SELECT * FROM places WHERE id=?", (cursor.lastrowid,)).fetchone()
     conn.close()
