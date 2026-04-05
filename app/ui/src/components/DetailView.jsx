@@ -128,7 +128,6 @@ export default function DetailView({place,onClose,onDelete,onEdit,routeStopIds,r
         <a title="Google" onClick={()=>window.open(mapsUrl,"_blank")} style={{width:34,height:34,borderRadius:8,border:"1px solid #EDE9E3",display:"flex",alignItems:"center",justifyContent:"center",cursor:"pointer",background:"#FFF",flexShrink:0}}>{gmapsIcon}</a>
         {isFood(place)&&<>
           <ReviewBtn title="Burpple" label="B" color="#E25D3A" bg="#FEF5F2" onClick={()=>window.open(`https://www.burpple.com/search/sg?q=${q}`,"_blank")}/>
-          <ReviewBtn title="HungryGoWhere" label="H" color="#E23B3B" bg="#FEF2F2" onClick={()=>window.open(`https://www.hungrygowhere.com/search/?q=${q}`,"_blank")}/>
           <ReviewBtn title="OpenRice" label="OR" color="#E17100" bg="#FFF7EF" onClick={()=>window.open(`https://sg.openrice.com/en/singapore/restaurants?what=${q}`,"_blank")}/>
         </>}
         <ReviewBtn title="TripAdvisor" label="TA" color="#00AA6C" bg="#F0FBF6" onClick={()=>window.open(`https://www.tripadvisor.com/Search?q=${q}`,"_blank")}/>

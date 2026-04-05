@@ -37,7 +37,6 @@ export default function App() {
   const handleEdited=u=>{setPlaces(prev=>prev.map(p=>p.id===u.id?u:p));if(detail?.id===u.id)setDetail(u);};
   const handleRefresh=async id=>{try{const u=await api(`/places/${id}/refresh`,{method:"POST"});setPlaces(prev=>prev.map(p=>p.id===u.id?u:p));setDetail(u);}catch(e){console.error(e);}};
   const handleDeleteRoute=async id=>{try{await api(`/routes/${id}`,{method:"DELETE"});setRoutes(prev=>prev.filter(r=>r.id!==id));}catch(e){console.error(e);}};
-  const handleRenameRoute=async(id,newName)=>{try{await api(`/routes/${id}`,{method:"PUT",body:JSON.stringify({name:newName})});setRoutes(prev=>prev.map(r=>r.id===id?{...r,name:newName}:r));}catch(e){console.error(e);}};
 
   const locLabel=filters.city||filters.country||null;
   const routeStopIds=routes.flatMap(r=>r.stops||[]);
@@ -83,7 +82,7 @@ export default function App() {
           </div>
         </div>)}
       </div>
-    :<RoutesTab routes={routes} onEdit={r=>setRoutePlanner({initialStops:r.stops,editingRoute:r})} onDelete={handleDeleteRoute} onNew={()=>setRoutePlanner({initialStops:[]})} onRename={handleRenameRoute}/>}
+    :<RoutesTab routes={routes} onEdit={r=>setRoutePlanner({initialStops:r.stops,editingRoute:r})} onDelete={handleDeleteRoute} onNew={()=>setRoutePlanner({initialStops:[]})}/>}
 
     {detail&&(()=>{const idx=fp.findIndex(p=>p.id===detail.id);return <DetailView place={detail} onClose={()=>setDetail(null)} onDelete={handleDelete} onEdit={()=>setEditPlace(detail)} routeStopIds={routeStopIds} routes={routes}
       onPrev={idx>0?()=>setDetail(fp[idx-1]):null}
