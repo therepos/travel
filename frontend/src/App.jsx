@@ -260,10 +260,8 @@ function RoutePlanner({allPlaces,initialStops,editingRoute,onClose,onSaved}) {
     try{
       if(editingRoute){await api(`/routes/${editingRoute.id}`,{method:"PUT",body:JSON.stringify({name,stops:selected})});}
       else{await api("/routes",{method:"POST",body:JSON.stringify({name,stops:selected})});}
-      if(onSaved)onSaved();
-      onClose();
-    }catch(e){console.error(e);}
-    setSaving(false);
+      if(onSaved)await onSaved();
+    }catch(e){console.error(e);setSaving(false);}
   };
 
   return <div style={{position:"fixed",inset:0,zIndex:1000,background:"rgba(0,0,0,.2)",backdropFilter:"blur(4px)",display:"flex",alignItems:"flex-end",justifyContent:"center",animation:"fadeIn .2s"}} onClick={e=>{if(e.target===e.currentTarget)onClose();}}>
@@ -411,6 +409,6 @@ export default function App() {
     </div>}
 
     {/* Route planner */}
-    {routePlanner&&<RoutePlanner allPlaces={places} initialStops={routePlanner.initialStops} editingRoute={routePlanner.editingRoute} onClose={()=>setRoutePlanner(null)} onSaved={()=>{api("/routes").then(d=>setRoutes(d.routes||[])).catch(()=>{});}}/>}
+    {routePlanner&&<RoutePlanner allPlaces={places} initialStops={routePlanner.initialStops} editingRoute={routePlanner.editingRoute} onClose={()=>setRoutePlanner(null)} onSaved={async()=>{try{const d=await api("/routes");setRoutes(d.routes||[]);}catch(e){}setRoutePlanner(null);setTab("routes");}}/>}
   </div>;
 }
