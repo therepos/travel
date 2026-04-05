@@ -12,10 +12,8 @@ RUN pip install --no-cache-dir -r requirements.txt
 COPY backend/ ./backend/
 COPY --from=frontend-build /build/dist ./frontend/dist
 RUN mkdir -p /data
-
-ENV DB_PATH=/data/wanderlust.db
+ENV DB_PATH=/data/travel.db
 ENV STATIC_DIR=/app/frontend/dist
 ENV GOOGLE_PLACES_API_KEY=""
-
 EXPOSE 8000
 CMD ["uvicorn", "backend.main:app", "--host", "0.0.0.0", "--port", "8000", "--loop", "asyncio"]

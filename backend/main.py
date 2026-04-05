@@ -7,11 +7,11 @@ from datetime import date
 from contextlib import asynccontextmanager
 from fastapi import FastAPI, HTTPException, Query
 from fastapi.staticfiles import StaticFiles
-from fastapi.responses import FileResponse
+from fastapi.responses import FileResponse, RedirectResponse
 from pydantic import BaseModel
 from typing import Optional
 
-DB_PATH = os.environ.get("DB_PATH", "/data/wanderlust.db")
+DB_PATH = os.environ.get("DB_PATH", "/data/travel.db")
 GOOGLE_API_KEY = os.environ.get("GOOGLE_PLACES_API_KEY", "")
 STATIC_DIR = os.environ.get("STATIC_DIR", "/app/frontend/dist")
 
@@ -43,7 +43,27 @@ def init_db():
             notes TEXT DEFAULT '',
             google_place_id TEXT DEFAULT '',
             google_maps_url TEXT DEFAULT '',
+            phone TEXT DEFAULT '',
+            website TEXT DEFAULT '',
+            rating REAL DEFAULT 0,
+            rating_count INTEGER DEFAULT 0,
+            price_level TEXT DEFAULT '',
+            hours TEXT DEFAULT '',
+            editorial_summary TEXT DEFAULT '',
+            dining TEXT DEFAULT '[]',
+            serves TEXT DEFAULT '[]',
+            amenities TEXT DEFAULT '[]',
             saved TEXT NOT NULL
+        )
+    """)
+    conn.execute("""
+        CREATE TABLE IF NOT EXISTS routes (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            name TEXT NOT NULL,
+            stops TEXT DEFAULT '[]',
+            route_url TEXT DEFAULT '',
+            created TEXT NOT NULL,
+            updated TEXT NOT NULL
         )
     """)
     conn.commit()
@@ -65,6 +85,16 @@ class PlaceCreate(BaseModel):
     notes: str = ""
     google_place_id: str = ""
     google_maps_url: str = ""
+    phone: str = ""
+    website: str = ""
+    rating: float = 0
+    rating_count: int = 0
+    price_level: str = ""
+    hours: str = ""
+    editorial_summary: str = ""
+    dining: list[str] = []
+    serves: list[str] = []
+    amenities: list[str] = []
     saved: str = ""
 
 
@@ -74,6 +104,16 @@ class PlaceUpdate(BaseModel):
     notes: Optional[str] = None
 
 
+class RouteCreate(BaseModel):
+    name: str
+    stops: list[int] = []
+
+
+class RouteUpdate(BaseModel):
+    name: Optional[str] = None
+    stops: Optional[list[int]] = None
+
+
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     init_db()
@@ -81,6 +121,8 @@ async def lifespan(app: FastAPI):
 
 app = FastAPI(title="Travel", lifespan=lifespan)
 
+
+# ── Region mapping ────────────────────────────────────────
 
 REGION_MAP = {
     "AF": "Africa", "DZ": "Africa", "AO": "Africa", "BJ": "Africa", "BW": "Africa",
@@ -158,15 +200,95 @@ def extract_auto_tags(place_types):
     return [tmap[t] for t in (place_types or []) if t in tmap][:5]
 
 
+def extract_dining(place):
+    d = []
+    if place.get("dineIn"): d.append("dine-in")
+    if place.get("delivery"): d.append("delivery")
+    if place.get("curbsidePickup"): d.append("pickup")
+    if place.get("reservable"): d.append("reservable")
+    if place.get("outdoorSeating"): d.append("outdoor seating")
+    return d
+
+
+def extract_serves(place):
+    s = []
+    if place.get("servesBreakfast"): s.append("breakfast")
+    if place.get("servesBrunch"): s.append("brunch")
+    if place.get("servesLunch"): s.append("lunch")
+    if place.get("servesDinner"): s.append("dinner")
+    if place.get("servesBeer"): s.append("beer")
+    if place.get("servesWine"): s.append("wine")
+    if place.get("servesCocktails"): s.append("cocktails")
+    if place.get("servesCoffee"): s.append("coffee")
+    if place.get("servesDessert"): s.append("dessert")
+    if place.get("servesVegetarianFood"): s.append("vegetarian")
+    return s
+
+
+def extract_amenities(place):
+    a = []
+    ao = place.get("accessibilityOptions", {})
+    if ao.get("wheelchairAccessibleEntrance"): a.append("wheelchair accessible")
+    if ao.get("wheelchairAccessibleRestroom"): a.append("accessible restroom")
+    if ao.get("wheelchairAccessibleSeating"): a.append("accessible seating")
+    if place.get("restroom"): a.append("restroom")
+    if place.get("goodForChildren"): a.append("good for kids")
+    if place.get("goodForGroups"): a.append("good for groups")
+    if place.get("goodForWatchingSports"): a.append("sports viewing")
+    if place.get("liveMusic"): a.append("live music")
+    if place.get("allowsDogs"): a.append("dogs allowed")
+    po = place.get("parkingOptions", {})
+    if po.get("freeParking") or po.get("paidParking"): a.append("parking")
+    return a
+
+
+def extract_hours(place):
+    roh = place.get("regularOpeningHours", {})
+    descs = roh.get("weekdayDescriptions", [])
+    if descs:
+        return " | ".join(descs[:3])
+    return ""
+
+
+def extract_price_level(place):
+    pl = place.get("priceLevel", "")
+    m = {"PRICE_LEVEL_FREE": "Free", "PRICE_LEVEL_INEXPENSIVE": "$",
+         "PRICE_LEVEL_MODERATE": "$$", "PRICE_LEVEL_EXPENSIVE": "$$$",
+         "PRICE_LEVEL_VERY_EXPENSIVE": "$$$$"}
+    return m.get(pl, "")
+
+
+# ── Google Places API ─────────────────────────────────────
+
+SEARCH_FIELDS = ",".join([
+    "places.id", "places.displayName", "places.formattedAddress",
+    "places.location", "places.photos", "places.addressComponents",
+    "places.types", "places.googleMapsLinks",
+    "places.internationalPhoneNumber", "places.websiteUri",
+    "places.rating", "places.userRatingCount", "places.priceLevel",
+    "places.regularOpeningHours", "places.editorialSummary",
+    "places.dineIn", "places.delivery", "places.curbsidePickup",
+    "places.reservable", "places.outdoorSeating",
+    "places.servesBreakfast", "places.servesBrunch", "places.servesLunch",
+    "places.servesDinner", "places.servesBeer", "places.servesWine",
+    "places.servesCocktails", "places.servesCoffee", "places.servesDessert",
+    "places.servesVegetarianFood",
+    "places.accessibilityOptions", "places.restroom",
+    "places.goodForChildren", "places.goodForGroups",
+    "places.goodForWatchingSports", "places.liveMusic", "places.allowsDogs",
+    "places.parkingOptions",
+])
+
+
 @app.get("/api/search")
 async def search_places(q: str = Query(..., min_length=1)):
     if not GOOGLE_API_KEY:
-        raise HTTPException(status_code=500, detail="Google Places API key not configured")
+        raise HTTPException(500, "Google Places API key not configured")
 
     headers = {
         "Content-Type": "application/json",
         "X-Goog-Api-Key": GOOGLE_API_KEY,
-        "X-Goog-FieldMask": "places.id,places.displayName,places.formattedAddress,places.location,places.photos,places.addressComponents,places.types,places.googleMapsLinks",
+        "X-Goog-FieldMask": SEARCH_FIELDS,
     }
 
     async with httpx.AsyncClient(timeout=10) as client:
@@ -175,42 +297,75 @@ async def search_places(q: str = Query(..., min_length=1)):
                 json={"textQuery": q, "maxResultCount": 5}, headers=headers)
             resp.raise_for_status()
         except httpx.HTTPStatusError as e:
-            raise HTTPException(status_code=502, detail=f"Google API error: {e.response.status_code}")
+            raise HTTPException(502, f"Google API error: {e.response.status_code}")
         except httpx.RequestError as e:
-            raise HTTPException(status_code=502, detail=f"Request failed: {str(e)}")
+            raise HTTPException(502, f"Request failed: {str(e)}")
 
     results = []
-    for place in resp.json().get("places", []):
-        loc = place.get("location", {})
-        dn = place.get("displayName", {})
-        addr = extract_address_parts(place.get("addressComponents", []))
-        photos = place.get("photos", [])
+    for p in resp.json().get("places", []):
+        loc = p.get("location", {})
+        dn = p.get("displayName", {})
+        addr = extract_address_parts(p.get("addressComponents", []))
+
         photo_url = ""
+        photos = p.get("photos", [])
         if photos:
             pn = photos[0].get("name", "")
-            if pn: photo_url = f"https://places.googleapis.com/v1/{pn}/media?maxWidthPx=800&key={GOOGLE_API_KEY}"
+            if pn:
+                photo_url = f"https://places.googleapis.com/v1/{pn}/media?maxWidthPx=800&key={GOOGLE_API_KEY}"
 
-        ml = place.get("googleMapsLinks", {})
+        ml = p.get("googleMapsLinks", {})
         maps_url = ml.get("placeUri", "")
         if not maps_url:
-            maps_url = f"https://www.google.com/maps/search/?api=1&query={dn.get('text','')}&query_place_id={place.get('id','')}"
+            maps_url = f"https://www.google.com/maps/search/?api=1&query={dn.get('text','')}&query_place_id={p.get('id','')}"
+
+        es = p.get("editorialSummary", {})
 
         results.append({
-            "google_place_id": place.get("id", ""), "name": dn.get("text", ""),
-            "address": place.get("formattedAddress", ""),
+            "google_place_id": p.get("id", ""),
+            "name": dn.get("text", ""),
+            "address": p.get("formattedAddress", ""),
             "country": addr["country"], "city": addr["city"],
             "district": addr["district"], "region": addr["region"],
             "lat": loc.get("latitude", 0), "lng": loc.get("longitude", 0),
-            "photo": photo_url, "auto_tags": extract_auto_tags(place.get("types", [])),
+            "photo": photo_url,
+            "auto_tags": extract_auto_tags(p.get("types", [])),
             "google_maps_url": maps_url,
+            "phone": p.get("internationalPhoneNumber", ""),
+            "website": p.get("websiteUri", ""),
+            "rating": p.get("rating", 0),
+            "rating_count": p.get("userRatingCount", 0),
+            "price_level": extract_price_level(p),
+            "hours": extract_hours(p),
+            "editorial_summary": es.get("text", "") if isinstance(es, dict) else "",
+            "dining": extract_dining(p),
+            "serves": extract_serves(p),
+            "amenities": extract_amenities(p),
         })
     return {"results": results}
 
 
+# ── Static map proxy ──────────────────────────────────────
+
+@app.get("/api/staticmap")
+async def static_map(lat: float, lng: float, zoom: int = 15, w: int = 600, h: int = 300):
+    if not GOOGLE_API_KEY:
+        raise HTTPException(500, "API key not configured")
+    url = (f"https://maps.googleapis.com/maps/api/staticmap?"
+           f"center={lat},{lng}&zoom={zoom}&size={w}x{h}"
+           f"&markers=color:red|{lat},{lng}&key={GOOGLE_API_KEY}"
+           f"&style=feature:all|saturation:-30")
+    return RedirectResponse(url)
+
+
+# ── Places CRUD ───────────────────────────────────────────
+
+JSON_FIELDS = ["tags", "auto_tags", "dining", "serves", "amenities"]
+
 def row_to_place(row):
     d = dict(row)
-    d["tags"] = json.loads(d["tags"]) if d["tags"] else []
-    d["auto_tags"] = json.loads(d.get("auto_tags") or "[]")
+    for f in JSON_FIELDS:
+        d[f] = json.loads(d.get(f) or "[]")
     return d
 
 
@@ -228,12 +383,18 @@ def create_place(place: PlaceCreate):
     saved = place.saved or date.today().isoformat()
     cursor = conn.execute(
         """INSERT INTO places (name,address,country,city,district,region,lat,lng,
-           photo,tags,auto_tags,notes,google_place_id,google_maps_url,saved)
-           VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)""",
+           photo,tags,auto_tags,notes,google_place_id,google_maps_url,
+           phone,website,rating,rating_count,price_level,hours,
+           editorial_summary,dining,serves,amenities,saved)
+           VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)""",
         (place.name, place.address, place.country, place.city, place.district,
          place.region, place.lat, place.lng, place.photo,
          json.dumps(place.tags), json.dumps(place.auto_tags),
-         place.notes, place.google_place_id, place.google_maps_url, saved))
+         place.notes, place.google_place_id, place.google_maps_url,
+         place.phone, place.website, place.rating, place.rating_count,
+         place.price_level, place.hours, place.editorial_summary,
+         json.dumps(place.dining), json.dumps(place.serves),
+         json.dumps(place.amenities), saved))
     conn.commit()
     row = conn.execute("SELECT * FROM places WHERE id=?", (cursor.lastrowid,)).fetchone()
     conn.close()
@@ -267,6 +428,104 @@ def delete_place(place_id: int):
     conn.commit(); conn.close()
     return {"ok": True}
 
+
+# ── Routes CRUD ───────────────────────────────────────────
+
+def row_to_route(row):
+    d = dict(row)
+    d["stops"] = json.loads(d["stops"]) if d["stops"] else []
+    return d
+
+
+def build_route_url(places):
+    if len(places) == 0: return ""
+    if len(places) == 1:
+        return f"https://www.google.com/maps/search/?api=1&query={places[0]['lat']},{places[0]['lng']}"
+    o = f"{places[0]['lat']},{places[0]['lng']}"
+    d = f"{places[-1]['lat']},{places[-1]['lng']}"
+    url = f"https://www.google.com/maps/dir/?api=1&origin={o}&destination={d}&travelmode=driving"
+    if len(places) > 2:
+        url += "&waypoints=" + "|".join(f"{p['lat']},{p['lng']}" for p in places[1:-1])
+    return url
+
+
+@app.get("/api/routes")
+def list_routes():
+    conn = get_db()
+    rows = conn.execute("SELECT * FROM routes ORDER BY updated DESC").fetchall()
+    routes = []
+    for row in rows:
+        r = row_to_route(row)
+        # Fetch stop details
+        if r["stops"]:
+            ph = ",".join("?" * len(r["stops"]))
+            place_rows = conn.execute(f"SELECT id,name,photo,lat,lng,country,city FROM places WHERE id IN ({ph})", r["stops"]).fetchall()
+            pm = {dict(p)["id"]: dict(p) for p in place_rows}
+            r["stop_details"] = [pm[sid] for sid in r["stops"] if sid in pm]
+        else:
+            r["stop_details"] = []
+        routes.append(r)
+    conn.close()
+    return {"routes": routes}
+
+
+@app.post("/api/routes")
+def create_route(route: RouteCreate):
+    conn = get_db()
+    now = date.today().isoformat()
+    # Build URL from stop coordinates
+    if route.stops:
+        ph = ",".join("?" * len(route.stops))
+        rows = conn.execute(f"SELECT id,lat,lng FROM places WHERE id IN ({ph})", route.stops).fetchall()
+        pm = {dict(r)["id"]: dict(r) for r in rows}
+        ordered = [pm[sid] for sid in route.stops if sid in pm]
+        url = build_route_url(ordered)
+    else:
+        url = ""
+    cursor = conn.execute(
+        "INSERT INTO routes (name,stops,route_url,created,updated) VALUES (?,?,?,?,?)",
+        (route.name, json.dumps(route.stops), url, now, now))
+    conn.commit()
+    row = conn.execute("SELECT * FROM routes WHERE id=?", (cursor.lastrowid,)).fetchone()
+    conn.close()
+    return row_to_route(row)
+
+
+@app.put("/api/routes/{route_id}")
+def update_route(route_id: int, updates: RouteUpdate):
+    conn = get_db()
+    row = conn.execute("SELECT * FROM routes WHERE id=?", (route_id,)).fetchone()
+    if not row: conn.close(); raise HTTPException(404, "Route not found")
+    now = date.today().isoformat()
+    fields, values = ["updated=?"], [now]
+    if updates.name is not None: fields.append("name=?"); values.append(updates.name)
+    if updates.stops is not None:
+        fields.append("stops=?"); values.append(json.dumps(updates.stops))
+        # Rebuild URL
+        ph = ",".join("?" * len(updates.stops))
+        rows = conn.execute(f"SELECT id,lat,lng FROM places WHERE id IN ({ph})", updates.stops).fetchall()
+        pm = {dict(r)["id"]: dict(r) for r in rows}
+        ordered = [pm[sid] for sid in updates.stops if sid in pm]
+        fields.append("route_url=?"); values.append(build_route_url(ordered))
+    values.append(route_id)
+    conn.execute(f"UPDATE routes SET {','.join(fields)} WHERE id=?", values)
+    conn.commit()
+    row = conn.execute("SELECT * FROM routes WHERE id=?", (route_id,)).fetchone()
+    conn.close()
+    return row_to_route(row)
+
+
+@app.delete("/api/routes/{route_id}")
+def delete_route(route_id: int):
+    conn = get_db()
+    row = conn.execute("SELECT * FROM routes WHERE id=?", (route_id,)).fetchone()
+    if not row: conn.close(); raise HTTPException(404, "Route not found")
+    conn.execute("DELETE FROM routes WHERE id=?", (route_id,))
+    conn.commit(); conn.close()
+    return {"ok": True}
+
+
+# ── Serve frontend ────────────────────────────────────────
 
 if Path(STATIC_DIR).exists():
     app.mount("/assets", StaticFiles(directory=f"{STATIC_DIR}/assets"), name="assets")
