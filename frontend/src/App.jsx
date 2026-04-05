@@ -302,7 +302,7 @@ function RoutePlanner({allPlaces,initialStops,editingRoute,onClose,onSaved}) {
       {/* Actions */}
       <button onClick={openAndSave} disabled={active.length===0||saving} style={{width:"100%",padding:12,borderRadius:10,border:"none",background:active.length>0?"#1B7A5A":"#E0DBD3",color:active.length>0?"#FFF":"#A09888",fontSize:13,fontWeight:600,cursor:active.length>0?"pointer":"default",display:"flex",alignItems:"center",justifyContent:"center",gap:5}}>
         {I.gmaps} {editingRoute?"Update & open route":"Open route in Google Maps"}</button>
-      <div style={{fontSize:10,color:"#B5AFA5",textAlign:"center",marginTop:6}}>Route auto-saved{active.length>10&&<span style={{color:"#B04040"}}> · Max ~10 waypoints</span>}</div>
+      <div style={{fontSize:10,color:"#B5AFA5",textAlign:"center",marginTop:6}}>Route will be saved when opened{active.length>10&&<span style={{color:"#B04040"}}> · Max ~10 waypoints</span>}</div>
     </div></div>;
 }
 
@@ -375,7 +375,6 @@ export default function App() {
         <div style={{display:"flex",background:"#F3F0EB",borderRadius:7,padding:2}}>
           {["places","routes"].map(t=><button key={t} onClick={()=>setTab(t)} style={{padding:"4px 10px",borderRadius:5,border:"none",background:tab===t?"#FFF":"transparent",color:tab===t?"#2C2A26":"#A09888",fontSize:11,fontWeight:600,cursor:"pointer",boxShadow:tab===t?"0 1px 2px rgba(0,0,0,.05)":"none",textTransform:"capitalize"}}>{t}</button>)}
         </div>
-        {tab==="places"&&locLabel&&fp.length>1&&<button onClick={()=>setRoutePlanner({initialStops:fp.map(p=>p.id)})} style={{padding:"4px 9px",borderRadius:6,border:"none",background:"#1B7A5A",color:"#FFF",fontSize:10,fontWeight:600,cursor:"pointer",display:"flex",alignItems:"center",gap:3}}>{I.route}Route</button>}
         {tab==="routes"&&<button onClick={()=>setRoutePlanner({initialStops:[]})} style={{padding:"4px 9px",borderRadius:6,border:"none",background:"#B8602E",color:"#FFF",fontSize:10,fontWeight:600,cursor:"pointer",display:"flex",alignItems:"center",gap:3}}>{I.plus}New</button>}
         <button onClick={()=>{setSearchOpen(!searchOpen);if(searchOpen)setSearchQ("");}} style={{width:28,height:28,borderRadius:"50%",border:"1px solid #E8E3DB",background:searchOpen?"#2C2A260A":"#FFF",cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center",color:searchOpen?"#2C2A26":"#9E978C"}}>{searchOpen?I.x:I.search}</button>
       </div>
