@@ -1,11 +1,16 @@
-import { useState, useEffect } from "react";
-import { api, I, ib } from "./shared.jsx";
+import { useState, useEffect, useRef } from "react";
+import { api, C, I, NAV_H, doShare } from "./shared.jsx";
 import DetailView from "./components/DetailView.jsx";
 import EditModal from "./components/EditModal.jsx";
 import CaptureBar from "./components/CaptureBar.jsx";
 import SmartFilters from "./components/SmartFilters.jsx";
 import RoutePlanner from "./components/RoutePlanner.jsx";
 import RoutesTab from "./components/RoutesTab.jsx";
+import BottomNav from "./components/BottomNav.jsx";
+import SwipeRow from "./components/SwipeRow.jsx";
+import ContextMenu from "./components/ContextMenu.jsx";
+import SelectionBar from "./components/SelectionBar.jsx";
+import SearchView from "./components/SearchView.jsx";
 
 export default function App() {
   const [places,setPlaces]=useState([]);const [routes,setRoutes]=useState([]);const [loading,setLoading]=useState(true);
@@ -13,7 +18,16 @@ export default function App() {
   const [filters,setFilters]=useState({region:null,country:null,city:null,tag:null,autoTag:null});
   const [detail,setDetail]=useState(null);const [editPlace,setEditPlace]=useState(null);
   const [routePlanner,setRoutePlanner]=useState(null);
-  const [searchQ,setSearchQ]=useState("");const [searchOpen,setSearchOpen]=useState(false);
+  const [showCapture,setShowCapture]=useState(false);
+  const [showSearch,setShowSearch]=useState(false);
+
+  // Multi-select
+  const [selectMode,setSelectMode]=useState(false);
+  const [selected,setSelected]=useState(new Set());
+  const longPressTimer=useRef(null);
+
+  // Context menu (3-dot)
+  const [menuPlace,setMenuPlace]=useState(null);
 
   const load=()=>{
     api("/places").then(d=>{setPlaces(d.places||[]);setLoading(false);}).catch(()=>setLoading(false));
@@ -27,77 +41,126 @@ export default function App() {
     if(filters.city&&p.city!==filters.city)return false;
     if(filters.tag&&!(p.tags||[]).includes(filters.tag))return false;
     if(filters.autoTag&&!(p.auto_tags||[]).includes(filters.autoTag))return false;
-    if(searchQ&&!p.name.toLowerCase().includes(searchQ.toLowerCase())&&!p.country.toLowerCase().includes(searchQ.toLowerCase())&&!(p.city||"").toLowerCase().includes(searchQ.toLowerCase()))return false;
     return true;
   });
 
-  const goHome=()=>{setFilters({region:null,country:null,city:null,tag:null,autoTag:null});setDetail(null);setEditPlace(null);setRoutePlanner(null);setSearchQ("");setSearchOpen(false);setTab("places");};
-  const handleSave=p=>setPlaces(prev=>[p,...prev]);
+  const goHome=()=>{setFilters({region:null,country:null,city:null,tag:null,autoTag:null});setDetail(null);setEditPlace(null);setRoutePlanner(null);setShowCapture(false);setShowSearch(false);exitSelectMode();setTab("places");};
+  const handleSave=p=>{setPlaces(prev=>[p,...prev]);};
   const handleDelete=async id=>{try{await api(`/places/${id}`,{method:"DELETE"});setPlaces(prev=>prev.filter(p=>p.id!==id));setDetail(null);}catch(e){console.error(e);}};
   const handleEdited=u=>{setPlaces(prev=>prev.map(p=>p.id===u.id?u:p));if(detail?.id===u.id)setDetail(u);};
   const handleRefresh=async id=>{try{const u=await api(`/places/${id}/refresh`,{method:"POST"});setPlaces(prev=>prev.map(p=>p.id===u.id?u:p));setDetail(u);}catch(e){console.error(e);}};
   const handleDeleteRoute=async id=>{try{await api(`/routes/${id}`,{method:"DELETE"});setRoutes(prev=>prev.filter(r=>r.id!==id));}catch(e){console.error(e);}};
 
-  const locLabel=filters.city||filters.country||null;
-  const routeStopIds=routes.flatMap(r=>r.stops||[]);
-  const showTripBar=tab==="places"&&locLabel&&fp.length>1&&!detail&&!routePlanner;
+  // Select mode
+  const toggleSelect=id=>{setSelected(prev=>{const n=new Set(prev);if(n.has(id))n.delete(id);else n.add(id);return n;});};
+  const startLongPress=id=>{longPressTimer.current=setTimeout(()=>{setSelectMode(true);setSelected(new Set([id]));},500);};
+  const cancelLongPress=()=>{if(longPressTimer.current)clearTimeout(longPressTimer.current);};
+  const exitSelectMode=()=>{setSelectMode(false);setSelected(new Set());};
 
-  return <div style={{width:"100vw",height:"100vh",overflow:"hidden",background:"#FAFAF7",fontFamily:"'DM Sans',sans-serif",display:"flex",flexDirection:"column"}}>
+  // Bulk actions
+  const bulkDelete=async()=>{const ids=[...selected];for(const id of ids){try{await api(`/places/${id}`,{method:"DELETE"});}catch(e){}}setPlaces(prev=>prev.filter(p=>!ids.includes(p.id)));exitSelectMode();};
+  const bulkAddToRoute=()=>{setRoutePlanner({initialStops:[...selected]});exitSelectMode();};
+  const bulkExport=()=>{
+    const items=places.filter(p=>selected.has(p.id));
+    const text=items.map(p=>`${p.name}${p.city?` — ${p.city}`:""}${p.google_maps_url?`\n${p.google_maps_url}`:""}`).join("\n\n");
+    if(navigator.share){try{navigator.share({title:"My Travel List",text});}catch(e){}}
+    else{try{navigator.clipboard.writeText(text);}catch(e){}}
+    exitSelectMode();
+  };
+
+  // Nav handler — context-aware + button
+  const handleNav=t=>{
+    if(t==="search"){setShowSearch(true);return;}
+    if(t==="add"){
+      if(tab==="places"){setShowCapture(!showCapture);}
+      else if(tab==="routes"){setRoutePlanner({initialStops:[]});}
+      return;
+    }
+    setTab(t);setShowCapture(false);exitSelectMode();
+  };
+
+  const routeStopIds=routes.flatMap(r=>r.stops||[]);
+  const locLabel=filters.city||filters.country||null;
+  const showTripBar=tab==="places"&&locLabel&&fp.length>1&&!detail&&!routePlanner&&!selectMode;
+
+  return <div style={{width:"100vw",height:"100dvh",overflow:"hidden",background:C.bg,fontFamily:"'DM Sans',sans-serif",display:"flex",flexDirection:"column"}}>
     <style>{`@keyframes fadeIn{from{opacity:0}to{opacity:1}}@keyframes slideIn{from{opacity:0;transform:translateY(-5px)}to{opacity:1;transform:translateY(0)}}@keyframes slideUp{from{transform:translateY(100%)}to{transform:translateY(0)}}@keyframes spin{from{transform:rotate(0deg)}to{transform:rotate(360deg)}}`}</style>
 
     {/* Header */}
-    <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",padding:"10px 16px",flexShrink:0,background:"#FEFDFB",borderBottom:".5px solid #EDE9E3"}}>
-      <h1 onClick={goHome} style={{fontFamily:"'Instrument Serif',Georgia,serif",fontSize:26,fontWeight:400,color:"#2C2A26",margin:0,cursor:"pointer"}}>Travel</h1>
-      <div style={{display:"flex",alignItems:"center",gap:6}}>
-        <span style={{fontSize:13,color:"#B5AFA5"}}>{tab==="places"?`${fp.length}`:""}</span>
-        <div style={{display:"flex",background:"#F3F0EB",borderRadius:7,padding:2}}>
-          {["places","routes"].map(t=><button key={t} onClick={()=>setTab(t)} style={{padding:"6px 12px",borderRadius:6,border:"none",background:tab===t?"#FFF":"transparent",color:tab===t?"#2C2A26":"#A09888",fontSize:13,fontWeight:600,cursor:"pointer",boxShadow:tab===t?"0 1px 2px rgba(0,0,0,.05)":"none",textTransform:"capitalize"}}>{t}</button>)}
-        </div>
-        <button onClick={()=>{setSearchOpen(!searchOpen);if(searchOpen)setSearchQ("");}} style={{width:34,height:34,borderRadius:"50%",border:"1px solid #E8E3DB",background:searchOpen?"#2C2A260A":"#FFF",cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center",color:searchOpen?"#2C2A26":"#9E978C"}}>{searchOpen?I.x:I.search}</button>
+    <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",padding:"14px 16px 6px",flexShrink:0}}>
+      <div style={{display:"flex",alignItems:"center",gap:10}}>
+        <h1 onClick={goHome} style={{fontFamily:"'Instrument Serif',Georgia,serif",fontSize:28,fontWeight:400,color:C.text,margin:0,cursor:"pointer",letterSpacing:"-0.02em"}}>{tab==="places"?"Places":"Routes"}</h1>
+        {tab==="places"&&<span style={{fontSize:13,fontWeight:600,color:C.textLight,background:C.surface,padding:"3px 10px",borderRadius:8,border:`1px solid ${C.borderLight}`}}>{fp.length}</span>}
       </div>
+      {tab==="places"&&selectMode&&<button onClick={exitSelectMode} style={{padding:"7px 14px",borderRadius:10,border:`1.5px solid ${C.accent}`,background:C.accentLight,cursor:"pointer",fontSize:13,fontWeight:600,color:C.accent}}>Done</button>}
     </div>
 
-    {searchOpen&&<div style={{padding:"6px 16px",background:"#FEFDFB",animation:"slideIn .15s"}}><input value={searchQ} onChange={e=>setSearchQ(e.target.value)} placeholder="Search..." autoFocus style={{width:"100%",padding:"10px 12px",borderRadius:8,border:"1.5px solid #E8E3DB",background:"#FFF",color:"#2C2A26",fontSize:14,outline:"none"}} onFocus={e=>e.target.style.borderColor="#D4A574"} onBlur={e=>e.target.style.borderColor="#E8E3DB"}/></div>}
+    {/* Capture bar (toggled by + in places tab) */}
+    {showCapture&&tab==="places"&&<CaptureBar onSave={handleSave}/>}
 
-    {tab==="places"&&<CaptureBar onSave={handleSave}/>}
+    {/* Filters */}
     {tab==="places"&&<SmartFilters places={places} filters={filters} setFilters={setFilters}/>}
 
+    {/* Places list */}
     {tab==="places"?
-      <div style={{flex:1,overflowY:"auto",paddingBottom:showTripBar?65:0}}>
-        {loading?<div style={{textAlign:"center",padding:"50px",color:"#B5AFA5",fontSize:14}}>Loading...</div>
-        :fp.length===0?<div style={{textAlign:"center",padding:"50px 20px",color:"#C4BDB2",fontSize:14}}>{places.length===0?"Save your first place above!":"No matches"}</div>
-        :fp.map(p=><div key={p.id} onClick={()=>setDetail(p)} style={{display:"flex",alignItems:"center",gap:10,padding:"10px 16px",borderBottom:"1px solid #F3F0EB",cursor:"pointer"}}>
-          <div style={{width:48,height:48,borderRadius:8,overflow:"hidden",flexShrink:0,background:"#F0EDE8",position:"relative"}}>
-            {p.photo&&<img src={p.photo} alt="" style={{width:"100%",height:"100%",objectFit:"cover"}} onError={e=>{e.target.style.display="none"}}/>}
-            {routeStopIds.includes(p.id)&&<div style={{position:"absolute",bottom:1,right:1,width:10,height:10,borderRadius:"50%",background:"#1B7A5A",border:"1.5px solid #FFF"}}/>}
-          </div>
-          <div style={{flex:1,minWidth:0}}>
-            <div style={{fontSize:15,fontWeight:500,color:"#2C2A26",whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis"}}>{p.name}</div>
-            <div style={{fontSize:13,color:"#9E978C",marginTop:2}}>{p.city||p.country}{(p.tags||[]).length>0&&<span style={{color:"#C4BDB2"}}> · {p.tags.join(", ")}</span>}</div>
-          </div>
-          <div style={{display:"flex",gap:4,flexShrink:0,alignItems:"center"}}>
-            {p.rating>0&&<div style={{display:"flex",alignItems:"center",gap:2}}>{I.star}<span style={{fontSize:13,color:"#854F0B"}}>{p.rating}</span></div>}
-            <span style={{fontSize:12,color:"#C4BDB2"}}>{p.saved}</span>
-            {ib(e=>{e.stopPropagation();setEditPlace(p);},I.edit)}
-          </div>
+      <div style={{flex:1,overflowY:"auto",padding:"4px 12px",paddingBottom:(selectMode&&selected.size>0)?100:(showTripBar?NAV_H+60:NAV_H+8)}}>
+        {loading?<div style={{textAlign:"center",padding:"50px",color:C.textLight,fontSize:14}}>Loading...</div>
+        :fp.length===0?<div style={{textAlign:"center",padding:"50px 20px",color:C.textLight,fontSize:14}}>{places.length===0?"Tap + to save your first place!":"No matches"}</div>
+        :fp.map(p=><div key={p.id}
+          onTouchStart={()=>!selectMode&&startLongPress(p.id)}
+          onTouchEnd={cancelLongPress}
+          onTouchMove={cancelLongPress}>
+          <SwipeRow place={p}
+            onTap={p=>setDetail(p)}
+            onEdit={p=>setEditPlace(p)}
+            onDelete={handleDelete}
+            isSelected={selected.has(p.id)}
+            selectMode={selectMode}
+            onToggleSelect={toggleSelect}
+            onDotsClick={id=>setMenuPlace(places.find(x=>x.id===id))}
+            routeStopIds={routeStopIds}/>
         </div>)}
       </div>
-    :<RoutesTab routes={routes} onEdit={r=>setRoutePlanner({initialStops:r.stops,editingRoute:r})} onDelete={handleDeleteRoute} onNew={()=>setRoutePlanner({initialStops:[]})}/>}
+    :<div style={{flex:1,display:"flex",flexDirection:"column",overflow:"hidden",paddingBottom:NAV_H}}>
+      <RoutesTab routes={routes} onEdit={r=>setRoutePlanner({initialStops:r.stops,editingRoute:r})} onDelete={handleDeleteRoute} onNew={()=>setRoutePlanner({initialStops:[]})}/>
+    </div>}
 
+    {/* Detail view */}
     {detail&&(()=>{const idx=fp.findIndex(p=>p.id===detail.id);return <DetailView place={detail} onClose={()=>setDetail(null)} onDelete={handleDelete} onEdit={()=>setEditPlace(detail)} routeStopIds={routeStopIds} routes={routes}
       onPrev={idx>0?()=>setDetail(fp[idx-1]):null}
       onNext={idx<fp.length-1&&idx>=0?()=>setDetail(fp[idx+1]):null}
       onRefresh={handleRefresh}
       onOpenRoute={r=>setRoutePlanner({initialStops:r.stops,editingRoute:r})}
     />;})()}
+
+    {/* Edit modal */}
     {editPlace&&<EditModal place={editPlace} onClose={()=>setEditPlace(null)} onSaved={handleEdited}/>}
 
-    {showTripBar&&<div style={{position:"fixed",bottom:0,left:0,right:0,background:"rgba(254,253,251,.95)",backdropFilter:"blur(10px)",borderTop:".5px solid #EDE9E3",padding:"10px 16px 14px",animation:"slideIn .3s",display:"flex",alignItems:"center",gap:8}}>
-      <div style={{flex:1}}><div style={{fontSize:14,fontWeight:600,color:"#2C2A26"}}>{fp.length} in {locLabel}</div>
-        <div style={{fontSize:12,color:"#9E978C"}}>Plan route with Google Maps</div></div>
-      <button onClick={()=>setRoutePlanner({initialStops:fp.map(p=>p.id)})} style={{padding:"9px 16px",borderRadius:8,border:"none",background:"#1B7A5A",color:"#FFF",fontSize:13,fontWeight:600,cursor:"pointer",display:"flex",alignItems:"center",gap:4}}>{I.route}Plan</button>
+    {/* Route planner */}
+    {routePlanner&&<RoutePlanner allPlaces={places} initialStops={routePlanner.initialStops} editingRoute={routePlanner.editingRoute} onClose={()=>setRoutePlanner(null)} onSaved={async()=>{try{const d=await api("/routes");setRoutes(d.routes||[]);}catch(e){}setRoutePlanner(null);setTab("routes");}}/>}
+
+    {/* Trip bar (when filtered by location) */}
+    {showTripBar&&<div style={{position:"fixed",bottom:NAV_H,left:0,right:0,background:`rgba(240,238,235,.95)`,backdropFilter:"blur(10px)",borderTop:`1px solid ${C.borderLight}`,padding:"10px 16px 12px",animation:"slideIn .3s",display:"flex",alignItems:"center",gap:8,zIndex:90}}>
+      <div style={{flex:1}}><div style={{fontSize:14,fontWeight:600,color:C.text}}>{fp.length} in {locLabel}</div>
+        <div style={{fontSize:12,color:C.textLight}}>Plan route with Google Maps</div></div>
+      <button onClick={()=>setRoutePlanner({initialStops:fp.map(p=>p.id)})} style={{padding:"9px 16px",borderRadius:10,border:"none",background:C.card,color:C.textOnDark,fontSize:13,fontWeight:600,cursor:"pointer",display:"flex",alignItems:"center",gap:4}}>{I.route} Plan</button>
     </div>}
 
-    {routePlanner&&<RoutePlanner allPlaces={places} initialStops={routePlanner.initialStops} editingRoute={routePlanner.editingRoute} onClose={()=>setRoutePlanner(null)} onSaved={async()=>{try{const d=await api("/routes");setRoutes(d.routes||[]);}catch(e){}setRoutePlanner(null);setTab("routes");}}/>}
+    {/* Bottom bar: selection bar OR nav */}
+    {selectMode&&selected.size>0
+      ?<SelectionBar count={selected.size} onAddToRoute={bulkAddToRoute} onExport={bulkExport} onDelete={bulkDelete} onCancel={exitSelectMode}/>
+      :<BottomNav tab={tab} onTab={handleNav} captureOpen={showCapture}/>
+    }
+
+    {/* Context menu (3-dot) */}
+    {menuPlace&&<ContextMenu place={menuPlace} onClose={()=>setMenuPlace(null)}
+      onEdit={p=>setEditPlace(p)}
+      onDelete={handleDelete}
+      onShare={p=>doShare(p)}
+      onAddToRoute={p=>{setRoutePlanner({initialStops:[p.id]});}}
+    />}
+
+    {/* Search overlay */}
+    {showSearch&&<SearchView places={places} onClose={()=>setShowSearch(false)} onSelect={p=>setDetail(p)}/>}
   </div>;
 }
