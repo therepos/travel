@@ -246,13 +246,27 @@ function RoutePlanner({allPlaces,initialStops,editingRoute,onClose,onSaved}) {
   const [searchQ,setSearchQ]=useState("");
   const [name,setName]=useState(editingRoute?.name||"New route");
   const [saving,setSaving]=useState(false);
+  const [fRegion,setFRegion]=useState(null);
+  const [fCountry,setFCountry]=useState(null);
+
+  // Build region/country counts
+  const regionCounts={};const countryCounts={};
+  allPlaces.forEach(p=>{
+    if(p.region){regionCounts[p.region]=(regionCounts[p.region]||0)+1;}
+    if(p.country){if(!fRegion||p.region===fRegion)countryCounts[p.country]=(countryCounts[p.country]||0)+1;}
+  });
 
   const filtered=allPlaces.filter(p=>{
+    if(fRegion&&p.region!==fRegion)return false;
+    if(fCountry&&p.country!==fCountry)return false;
     if(!searchQ)return true;
     const q=searchQ.toLowerCase();
     return p.name.toLowerCase().includes(q)||p.country.toLowerCase().includes(q)||(p.city||"").toLowerCase().includes(q);
   });
   const active=allPlaces.filter(p=>selected.includes(p.id));
+
+  const Fb=({label,active:a,onClick,color="#1B7A5A"})=><button onClick={onClick} style={{padding:"2px 7px",borderRadius:10,fontSize:10,cursor:"pointer",border:`1px solid ${a?color:"#ECE9E3"}`,background:a?`${color}0F`:"#FFF",color:a?color:"#9E978C",whiteSpace:"nowrap",flexShrink:0}}>{label}</button>;
+
 
   const saveRoute=async()=>{
     if(active.length===0)return;
@@ -274,7 +288,14 @@ function RoutePlanner({allPlaces,initialStops,editingRoute,onClose,onSaved}) {
         <span style={{fontSize:11,color:"#9E978C",flexShrink:0}}>{active.length} stops</span>
       </div>
       {/* Search within saves */}
-      <input value={searchQ} onChange={e=>setSearchQ(e.target.value)} placeholder="Search your saves to add..." style={{width:"100%",padding:"8px 10px",borderRadius:7,border:"1.5px solid #E8E3DB",background:"#FFF",color:"#2C2A26",fontSize:12,outline:"none",marginBottom:8,boxSizing:"border-box"}}/>
+      <input value={searchQ} onChange={e=>setSearchQ(e.target.value)} placeholder="Search your saves to add..." style={{width:"100%",padding:"8px 10px",borderRadius:7,border:"1.5px solid #E8E3DB",background:"#FFF",color:"#2C2A26",fontSize:12,outline:"none",marginBottom:6,boxSizing:"border-box"}}/>
+      {/* Filters */}
+      <div style={{display:"flex",gap:3,flexWrap:"wrap",marginBottom:6}}>
+        {Object.entries(regionCounts).sort((a,b)=>b[1]-a[1]).map(([r,n])=><Fb key={r} label={`${r} (${n})`} active={fRegion===r} onClick={()=>{setFRegion(fRegion===r?null:r);setFCountry(null);}}/>)}
+      </div>
+      {fRegion&&Object.keys(countryCounts).length>1&&<div style={{display:"flex",gap:3,flexWrap:"wrap",marginBottom:6}}>
+        {Object.entries(countryCounts).sort((a,b)=>b[1]-a[1]).map(([c,n])=><Fb key={c} label={`${c} (${n})`} active={fCountry===c} color="#B8602E" onClick={()=>setFCountry(fCountry===c?null:c)}/>)}
+      </div>}
       {/* Place list */}
       <div style={{flex:1,overflowY:"auto",marginBottom:10}}>
         {filtered.map(place=>{
