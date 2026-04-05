@@ -1,9 +1,0 @@
-{
-  "name": "Travel",
-  "short_name": "Travel",
-  "description": "Save, organize, plan travel",
-  "start_url": "/",
-  "display": "standalone",
-  "background_color": "#FAFAF7",
-  "theme_color": "#FAFAF7"
-}
