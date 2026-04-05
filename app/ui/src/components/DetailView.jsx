@@ -3,20 +3,33 @@ import { C, I, NAV_H, TAG_COLORS, Chip, Label, doShare } from "../shared.jsx";
 
 const FOOD_TAGS = ["restaurant","food","cafe","bar","bakery","takeaway","meal_takeaway"];
 const isFood = (p) => [...(p.auto_tags||[]),...(p.tags||[])].some(t=>FOOD_TAGS.includes(t));
-
 const ReviewBtn = ({title,label,color,bg,onClick})=><a title={title} onClick={onClick} style={{width:34,height:34,borderRadius:8,border:`1px solid ${C.borderLight}`,display:"flex",alignItems:"center",justifyContent:"center",cursor:"pointer",background:bg,flexShrink:0}}><span style={{fontWeight:800,fontSize:label.length>1?12:15,color}}>{label}</span></a>;
 
-const ib = (onClick,icon,color=C.textLight,bg=C.surface,border=C.border) =>
-  <button onClick={onClick} style={{width:34,height:34,borderRadius:10,border:`1px solid ${border}`,background:bg,cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center",color,flexShrink:0,padding:0}}>{icon}</button>;
+function DetailMenu({place, onClose, onEdit, onDelete, onRefresh, onShare}) {
+  return <div onClick={onClose} style={{position:"fixed",inset:0,zIndex:2000,background:"rgba(0,0,0,.3)",backdropFilter:"blur(4px)",display:"flex",alignItems:"flex-end",justifyContent:"center"}}>
+    <div onClick={e=>e.stopPropagation()} style={{width:"100%",maxWidth:480,background:C.surface,borderRadius:"20px 20px 0 0",padding:"8px 6px 24px",animation:"slideUp .25s cubic-bezier(.4,0,.2,1)"}}>
+      <div style={{width:36,height:4,borderRadius:2,background:C.border,margin:"0 auto 10px"}}/>
+      {[
+        {icon:I.refresh, label:"Refresh data", action:()=>{onClose();onRefresh?.();}},
+        {icon:I.share, label:"Share", action:()=>{onClose();onShare?.();}},
+        {icon:I.edit, label:"Edit", action:()=>{onClose();onEdit?.();}},
+        {icon:I.gmaps, label:"Open in Maps", action:()=>{onClose();const url=place.google_maps_url||`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(place.name)}`;window.open(url,"_blank");}},
+      ].map((item,i)=>
+        <button key={i} onClick={item.action} style={{width:"100%",display:"flex",alignItems:"center",gap:14,padding:"14px 18px",border:"none",background:"transparent",cursor:"pointer",fontSize:15,color:C.text,borderRadius:12,fontFamily:"'DM Sans',sans-serif"}}>{item.icon} {item.label}</button>
+      )}
+      <div style={{height:1,background:C.border,margin:"4px 16px"}}/>
+      <button onClick={()=>{onClose();onDelete?.(place.id);}} style={{width:"100%",display:"flex",alignItems:"center",gap:14,padding:"14px 18px",border:"none",background:"transparent",cursor:"pointer",fontSize:15,color:C.danger,borderRadius:12,fontFamily:"'DM Sans',sans-serif"}}>{I.trash} Delete</button>
+    </div>
+  </div>;
+}
 
 export default function DetailView({place,onClose,onDelete,onEdit,routeStopIds,routes,onPrev,onNext,onRefresh,onOpenRoute}) {
-  const [refreshing,setRefreshing]=useState(false);
   const [isMobile,setIsMobile]=useState(window.innerWidth<768);
+  const [showMenu,setShowMenu]=useState(false);
   const [showRouteList,setShowRouteList]=useState(false);
   const touchRef=useRef(null);
-  useEffect(()=>{const h=()=>setIsMobile(window.innerWidth<768);window.addEventListener("resize",h);return()=>window.removeEventListener("resize",h);},[]);
 
-  // Back-button handling
+  useEffect(()=>{const h=()=>setIsMobile(window.innerWidth<768);window.addEventListener("resize",h);return()=>window.removeEventListener("resize",h);},[]);
   useEffect(()=>{
     window.history.pushState({detail:true},"");
     const handler=()=>onClose();
@@ -24,7 +37,6 @@ export default function DetailView({place,onClose,onDelete,onEdit,routeStopIds,r
     return()=>window.removeEventListener("popstate",handler);
   },[]);
 
-  const doRefreshAction=async()=>{if(!onRefresh)return;setRefreshing(true);await onRefresh(place.id);setRefreshing(false);};
   const mapsUrl = place.google_maps_url||`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(place.name)}&query_place_id=${place.google_place_id||""}`;
   const exploreUrl = `https://www.google.com/search?tbm=isch&q=${encodeURIComponent(place.name+" "+place.city)}`;
   const inRoute = routeStopIds.includes(place.id);
@@ -35,18 +47,7 @@ export default function DetailView({place,onClose,onDelete,onEdit,routeStopIds,r
   const onTouchStart=e=>{touchRef.current={x:e.touches[0].clientX,y:e.touches[0].clientY};};
   const onTouchEnd=e=>{if(!touchRef.current)return;const dx=e.changedTouches[0].clientX-touchRef.current.x;const dy=e.changedTouches[0].clientY-touchRef.current.y;if(Math.abs(dx)>60&&Math.abs(dx)>Math.abs(dy)*1.5){if(dx>0&&onPrev)onPrev();else if(dx<0&&onNext)onNext();}touchRef.current=null;};
 
-  const spinRefresh = <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{animation:"spin 1s linear infinite"}}><polyline points="23 4 23 10 17 10"/><path d="M20.49 15a9 9 0 11-2.12-9.36L23 10"/></svg>;
-
-  const photoBlock = (style) => <div style={{background:C.borderLight,position:"relative",overflow:"hidden",...style}}>
-    {place.photo&&<img src={place.photo} alt="" style={{width:"100%",height:"100%",objectFit:"cover",display:"block"}} onError={e=>{e.target.style.display="none"}}/>}
-    {inRoute&&<div onClick={handleRouteBadgeClick} style={{position:"absolute",top:10,left:10,display:"flex",alignItems:"center",gap:3,background:`rgba(74,139,111,.9)`,padding:"4px 10px",borderRadius:8,cursor:"pointer"}}>
-      <span style={{color:"#FFF"}}>{I.route}</span><span style={{fontSize:12,color:"#FFF",fontWeight:600}}>In route{placeRoutes.length>1?` (${placeRoutes.length})`:""}</span>
-    </div>}
-    {showRouteList&&placeRoutes.length>1&&<div style={{position:"absolute",top:42,left:10,background:"rgba(0,0,0,.75)",backdropFilter:"blur(8px)",borderRadius:8,padding:6,display:"flex",flexDirection:"column",gap:2,minWidth:160}}>
-      {placeRoutes.map(r=><div key={r.id} onClick={e=>{e.stopPropagation();if(onOpenRoute)onOpenRoute(r);}} style={{padding:"6px 10px",borderRadius:5,cursor:"pointer",fontSize:13,color:"#FFF",fontWeight:500}}>{r.name} <span style={{fontSize:11,color:"rgba(255,255,255,.6)"}}>· {(r.stop_details||[]).length} stops</span></div>)}
-    </div>}
-    <div onClick={()=>window.open(exploreUrl,"_blank")} style={{position:"absolute",bottom:10,right:10,background:"rgba(0,0,0,.45)",backdropFilter:"blur(4px)",borderRadius:8,padding:"5px 10px",display:"flex",alignItems:"center",gap:5,color:"#FFF",fontSize:12,cursor:"pointer"}}>{I.search} More photos</div>
-  </div>;
+  const handleRefresh=async()=>{if(onRefresh)await onRefresh(place.id);};
 
   const contentBlocks = <>
     <div>
@@ -93,36 +94,64 @@ export default function DetailView({place,onClose,onDelete,onEdit,routeStopIds,r
     <div style={{fontSize:12,color:C.textLight}}>Saved {place.saved}</div>
   </>;
 
-  const headerRow = <div style={{display:"flex",alignItems:"center",justifyContent:isMobile?"space-between":"flex-end",padding:"8px 12px",borderBottom:`1px solid ${C.borderLight}`,flexShrink:0,background:C.surface}}>
-    {isMobile&&<button onClick={onClose} style={{background:"none",border:"none",cursor:"pointer",padding:4,color:C.text,display:"flex"}}>{I.back}</button>}
-    <div style={{display:"flex",gap:4}}>
-      {ib(doRefreshAction,refreshing?spinRefresh:I.refresh,"#3A70A0","#3A70A00A","#3A70A030")}
-      {ib(()=>doShare(place),I.share,C.success,C.successBg,`${C.success}30`)}
-      {ib(onEdit,I.edit)}
-      {ib(()=>onDelete(place.id),I.trash,C.danger,C.dangerBg,`${C.danger}30`)}
-    </div>
-  </div>;
-
-  // ── MOBILE — sits above nav bar (bottom: NAV_H) ──
-  if(isMobile) return <div style={{position:"fixed",top:0,left:0,right:0,bottom:NAV_H,zIndex:900,background:C.surface,animation:"fadeIn .15s",display:"flex",flexDirection:"column",overflowX:"hidden"}} onTouchStart={onTouchStart} onTouchEnd={onTouchEnd}>
-    {headerRow}
-    <div style={{flex:1,overflowY:"auto",overflowX:"hidden"}}>
-      {photoBlock({width:"100%",aspectRatio:"4/3",flexShrink:0})}
-      <div style={{padding:"16px 16px",display:"flex",flexDirection:"column",gap:14}}>{contentBlocks}</div>
-    </div>
-  </div>;
-
-  // ── DESKTOP — modal overlay (unchanged) ──
-  return <div style={{position:"fixed",inset:0,zIndex:900,background:"rgba(0,0,0,.65)",animation:"fadeIn .15s",display:"flex",alignItems:"center",justifyContent:"center"}} onClick={e=>{if(e.target===e.currentTarget)onClose();}}>
-    <button onClick={onClose} style={{position:"fixed",top:14,right:14,zIndex:910,width:36,height:36,borderRadius:"50%",border:"none",background:"transparent",cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center",color:"#FFF"}}><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button>
-    {onPrev&&<button onClick={e=>{e.stopPropagation();onPrev();}} style={{position:"fixed",left:14,top:"50%",transform:"translateY(-50%)",zIndex:910,width:40,height:40,borderRadius:"50%",border:"none",background:"rgba(255,255,255,.15)",cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center",color:"#FFF",backdropFilter:"blur(4px)"}}><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><polyline points="15 18 9 12 15 6"/></svg></button>}
-    {onNext&&<button onClick={e=>{e.stopPropagation();onNext();}} style={{position:"fixed",right:14,top:"50%",transform:"translateY(-50%)",zIndex:910,width:40,height:40,borderRadius:"50%",border:"none",background:"rgba(255,255,255,.15)",cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center",color:"#FFF",backdropFilter:"blur(4px)"}}><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><polyline points="9 6 15 12 9 18"/></svg></button>}
-    <div style={{width:"min(92vw, 960px)",height:"min(88vh, 640px)",background:C.surface,borderRadius:8,overflow:"hidden",display:"flex",animation:"fadeIn .2s",boxShadow:"0 20px 60px rgba(0,0,0,.3)"}}>
-      {photoBlock({flex:1,minWidth:0})}
-      <div style={{flex:1,display:"flex",flexDirection:"column",minWidth:0,borderLeft:`1px solid ${C.borderLight}`}}>
-        {headerRow}
-        <div style={{flex:1,overflowY:"auto",padding:"16px 18px",display:"flex",flexDirection:"column",gap:14}}>{contentBlocks}</div>
+  // ── MOBILE — floating card ──
+  if(isMobile) return <>
+    <div style={{
+      position:"fixed", top:6, left:4, right:4, bottom:NAV_H,
+      zIndex:900, background:C.surface,
+      borderRadius:16, overflow:"hidden",
+      display:"flex", flexDirection:"column",
+      boxShadow:"0 8px 40px rgba(0,0,0,.12)",
+      animation:"fadeIn .15s",
+    }} onTouchStart={onTouchStart} onTouchEnd={onTouchEnd}>
+      {/* Photo with floating buttons */}
+      <div style={{width:"100%",aspectRatio:"4/3",flexShrink:0,background:C.borderLight,position:"relative",overflow:"hidden"}}>
+        {place.photo&&<img src={place.photo} alt="" style={{width:"100%",height:"100%",objectFit:"cover",display:"block"}} onError={e=>{e.target.style.display="none"}}/>}
+        {/* Back button */}
+        <button onClick={onClose} style={{position:"absolute",top:12,left:12,width:36,height:36,borderRadius:12,background:"rgba(0,0,0,.35)",backdropFilter:"blur(8px)",border:"none",cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center",color:"#FFF"}}>{I.back}</button>
+        {/* 3-dot menu */}
+        <button onClick={()=>setShowMenu(true)} style={{position:"absolute",top:12,right:12,width:36,height:36,borderRadius:12,background:"rgba(0,0,0,.35)",backdropFilter:"blur(8px)",border:"none",cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center",color:"#FFF"}}>{I.dots}</button>
+        {/* In route badge */}
+        {inRoute&&<div onClick={handleRouteBadgeClick} style={{position:"absolute",top:12,left:60,display:"flex",alignItems:"center",gap:3,background:"rgba(74,139,111,.85)",backdropFilter:"blur(4px)",padding:"5px 10px",borderRadius:10,cursor:"pointer"}}>
+          <span style={{color:"#FFF"}}>{I.route}</span><span style={{fontSize:12,color:"#FFF",fontWeight:600}}>In route{placeRoutes.length>1?` (${placeRoutes.length})`:""}</span>
+        </div>}
+        {showRouteList&&placeRoutes.length>1&&<div style={{position:"absolute",top:48,left:60,background:"rgba(0,0,0,.75)",backdropFilter:"blur(8px)",borderRadius:8,padding:6,display:"flex",flexDirection:"column",gap:2,minWidth:160}}>
+          {placeRoutes.map(r=><div key={r.id} onClick={e=>{e.stopPropagation();if(onOpenRoute)onOpenRoute(r);}} style={{padding:"6px 10px",borderRadius:5,cursor:"pointer",fontSize:13,color:"#FFF",fontWeight:500}}>{r.name}</div>)}
+        </div>}
+        {/* More photos */}
+        <div onClick={()=>window.open(exploreUrl,"_blank")} style={{position:"absolute",bottom:10,right:10,background:"rgba(0,0,0,.4)",backdropFilter:"blur(4px)",borderRadius:8,padding:"5px 10px",display:"flex",alignItems:"center",gap:5,color:"#FFF",fontSize:12,cursor:"pointer"}}>{I.search} More photos</div>
+      </div>
+      {/* Scrollable content */}
+      <div style={{flex:1,overflowY:"auto",padding:"16px 16px 20px",display:"flex",flexDirection:"column",gap:14}}>
+        {contentBlocks}
       </div>
     </div>
-  </div>;
+    {showMenu&&<DetailMenu place={place} onClose={()=>setShowMenu(false)} onEdit={onEdit} onDelete={onDelete} onRefresh={handleRefresh} onShare={()=>doShare(place)}/>}
+  </>;
+
+  // ── DESKTOP — modal overlay ──
+  return <>
+    <div style={{position:"fixed",inset:0,zIndex:900,background:"rgba(0,0,0,.65)",animation:"fadeIn .15s",display:"flex",alignItems:"center",justifyContent:"center"}} onClick={e=>{if(e.target===e.currentTarget)onClose();}}>
+      <button onClick={onClose} style={{position:"fixed",top:14,right:14,zIndex:910,width:36,height:36,borderRadius:"50%",border:"none",background:"transparent",cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center",color:"#FFF"}}><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button>
+      {onPrev&&<button onClick={e=>{e.stopPropagation();onPrev();}} style={{position:"fixed",left:14,top:"50%",transform:"translateY(-50%)",zIndex:910,width:40,height:40,borderRadius:"50%",border:"none",background:"rgba(255,255,255,.15)",cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center",color:"#FFF",backdropFilter:"blur(4px)"}}><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><polyline points="15 18 9 12 15 6"/></svg></button>}
+      {onNext&&<button onClick={e=>{e.stopPropagation();onNext();}} style={{position:"fixed",right:14,top:"50%",transform:"translateY(-50%)",zIndex:910,width:40,height:40,borderRadius:"50%",border:"none",background:"rgba(255,255,255,.15)",cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center",color:"#FFF",backdropFilter:"blur(4px)"}}><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><polyline points="9 6 15 12 9 18"/></svg></button>}
+      <div style={{width:"min(92vw, 960px)",height:"min(88vh, 640px)",background:C.surface,borderRadius:8,overflow:"hidden",display:"flex",animation:"fadeIn .2s",boxShadow:"0 20px 60px rgba(0,0,0,.3)"}}>
+        {/* Photo side */}
+        <div style={{flex:1,minWidth:0,background:C.borderLight,position:"relative",overflow:"hidden"}}>
+          {place.photo&&<img src={place.photo} alt="" style={{width:"100%",height:"100%",objectFit:"cover",display:"block"}} onError={e=>{e.target.style.display="none"}}/>}
+          {inRoute&&<div onClick={handleRouteBadgeClick} style={{position:"absolute",top:10,left:10,display:"flex",alignItems:"center",gap:3,background:"rgba(74,139,111,.85)",padding:"5px 10px",borderRadius:10,cursor:"pointer"}}><span style={{color:"#FFF"}}>{I.route}</span><span style={{fontSize:12,color:"#FFF",fontWeight:600}}>In route</span></div>}
+          <div onClick={()=>window.open(exploreUrl,"_blank")} style={{position:"absolute",bottom:10,right:10,background:"rgba(0,0,0,.4)",backdropFilter:"blur(4px)",borderRadius:8,padding:"5px 10px",display:"flex",alignItems:"center",gap:5,color:"#FFF",fontSize:12,cursor:"pointer"}}>{I.search} More photos</div>
+        </div>
+        {/* Content side */}
+        <div style={{flex:1,display:"flex",flexDirection:"column",minWidth:0,borderLeft:`1px solid ${C.borderLight}`}}>
+          {/* Desktop actions bar */}
+          <div style={{display:"flex",alignItems:"center",justifyContent:"flex-end",padding:"8px 12px",borderBottom:`1px solid ${C.borderLight}`,flexShrink:0}}>
+            <button onClick={()=>setShowMenu(true)} style={{width:34,height:34,borderRadius:10,border:`1px solid ${C.border}`,background:C.surface,cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center",color:C.textLight}}>{I.dots}</button>
+          </div>
+          <div style={{flex:1,overflowY:"auto",padding:"16px 18px",display:"flex",flexDirection:"column",gap:14}}>{contentBlocks}</div>
+        </div>
+      </div>
+    </div>
+    {showMenu&&<DetailMenu place={place} onClose={()=>setShowMenu(false)} onEdit={onEdit} onDelete={onDelete} onRefresh={handleRefresh} onShare={()=>doShare(place)}/>}
+  </>;
 }

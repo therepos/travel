@@ -79,17 +79,16 @@ export default function App() {
   return <div style={{width:"100vw",height:"100dvh",overflow:"hidden",background:C.bg,fontFamily:"'DM Sans',sans-serif",display:"flex",flexDirection:"column"}}>
     <style>{`@keyframes fadeIn{from{opacity:0}to{opacity:1}}@keyframes slideIn{from{opacity:0;transform:translateY(-5px)}to{opacity:1;transform:translateY(0)}}@keyframes slideUp{from{transform:translateY(100%)}to{transform:translateY(0)}}@keyframes spin{from{transform:rotate(0deg)}to{transform:rotate(360deg)}}`}</style>
 
-    {/* Header */}
-    <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",padding:"14px 16px 6px",flexShrink:0}}>
-      <div style={{display:"flex",alignItems:"center",gap:10}}>
-        <h1 onClick={goHome} style={{fontFamily:"'Instrument Serif',Georgia,serif",fontSize:28,fontWeight:400,color:C.text,margin:0,cursor:"pointer",letterSpacing:"-0.02em"}}>{tab==="places"?"Places":"Routes"}</h1>
-        {tab==="places"&&<span style={{fontSize:13,fontWeight:600,color:C.textLight,background:C.surface,padding:"3px 10px",borderRadius:8,border:`1px solid ${C.borderLight}`}}>{fp.length}</span>}
-      </div>
-      {tab==="places"&&selectMode&&<button onClick={exitSelectMode} style={{padding:"7px 14px",borderRadius:10,border:`1.5px solid ${C.accent}`,background:C.accentLight,cursor:"pointer",fontSize:13,fontWeight:600,color:C.accent}}>Done</button>}
-    </div>
-
+    {/* No header — capture bar toggled by + */}
     {showCapture&&tab==="places"&&<CaptureBar onSave={handleSave}/>}
-    {tab==="places"&&<SmartFilters places={places} filters={filters} setFilters={setFilters}/>}
+
+    {/* Drill-down filters */}
+    {tab==="places"&&<SmartFilters places={places} filters={filters} setFilters={setFilters} filteredCount={fp.length}/>}
+
+    {/* Done button for select mode */}
+    {tab==="places"&&selectMode&&<div style={{padding:"0 16px 6px",flexShrink:0,display:"flex",justifyContent:"flex-end"}}>
+      <button onClick={exitSelectMode} style={{padding:"7px 14px",borderRadius:10,border:`1.5px solid ${C.accent}`,background:C.accentLight,cursor:"pointer",fontSize:13,fontWeight:600,color:C.accent}}>Done</button>
+    </div>}
 
     {/* Places list */}
     {tab==="places"?
@@ -115,7 +114,7 @@ export default function App() {
       <RoutesTab routes={routes} onEdit={r=>setRoutePlanner({initialStops:r.stops,editingRoute:r})} onDelete={handleDeleteRoute} onNew={()=>setRoutePlanner({initialStops:[]})}/>
     </div>}
 
-    {/* Detail view — sits above nav on mobile */}
+    {/* Detail view */}
     {detail&&(()=>{const idx=fp.findIndex(p=>p.id===detail.id);return <DetailView place={detail} onClose={()=>setDetail(null)} onDelete={handleDelete} onEdit={()=>setEditPlace(detail)} routeStopIds={routeStopIds} routes={routes}
       onPrev={idx>0?()=>setDetail(fp[idx-1]):null}
       onNext={idx<fp.length-1&&idx>=0?()=>setDetail(fp[idx+1]):null}
@@ -132,12 +131,13 @@ export default function App() {
       <button onClick={()=>setRoutePlanner({initialStops:fp.map(p=>p.id)})} style={{padding:"9px 16px",borderRadius:10,border:"none",background:C.card,color:C.textOnDark,fontSize:13,fontWeight:600,cursor:"pointer",display:"flex",alignItems:"center",gap:4}}>{I.route} Plan</button>
     </div>}
 
-    {/* Bottom: selection bar OR nav — ALWAYS present */}
+    {/* Bottom: selection bar OR nav — always present */}
     {selectMode&&selected.size>0
       ?<SelectionBar count={selected.size} onAddToRoute={bulkAddToRoute} onExport={bulkExport} onDelete={bulkDelete} onCancel={exitSelectMode}/>
       :<BottomNav tab={tab} onTab={handleNav} captureOpen={showCapture}/>
     }
 
+    {/* Context menu (3-dot on list row) */}
     {menuPlace&&<ContextMenu place={menuPlace} onClose={()=>setMenuPlace(null)}
       onEdit={p=>setEditPlace(p)}
       onDelete={handleDelete}
@@ -145,7 +145,7 @@ export default function App() {
       onAddToRoute={p=>{setRoutePlanner({initialStops:[p.id]});}}
     />}
 
-    {/* Search overlay — above content, below nav */}
-    {showSearch&&<SearchView places={places} onClose={()=>setShowSearch(false)} onSelect={p=>setDetail(p)}/>}
+    {/* Search overlay — always accessible, sits above content below nav */}
+    {showSearch&&<SearchView places={places} onClose={()=>setShowSearch(false)} onSelect={p=>{setDetail(p);setShowSearch(false);}}/>}
   </div>;
 }
