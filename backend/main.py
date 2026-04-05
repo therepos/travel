@@ -67,6 +67,32 @@ def init_db():
         )
     """)
     conn.commit()
+
+    # ── Migrations: add columns that may not exist in older DBs ──
+    cursor = conn.execute("PRAGMA table_info(places)")
+    existing = {row[1] for row in cursor.fetchall()}
+    migrations = [
+        ("city", "TEXT DEFAULT ''"),
+        ("district", "TEXT DEFAULT ''"),
+        ("region", "TEXT DEFAULT ''"),
+        ("google_place_id", "TEXT DEFAULT ''"),
+        ("google_maps_url", "TEXT DEFAULT ''"),
+        ("phone", "TEXT DEFAULT ''"),
+        ("website", "TEXT DEFAULT ''"),
+        ("rating", "REAL DEFAULT 0"),
+        ("rating_count", "INTEGER DEFAULT 0"),
+        ("price_level", "TEXT DEFAULT ''"),
+        ("hours", "TEXT DEFAULT ''"),
+        ("editorial_summary", "TEXT DEFAULT ''"),
+        ("dining", "TEXT DEFAULT '[]'"),
+        ("serves", "TEXT DEFAULT '[]'"),
+        ("amenities", "TEXT DEFAULT '[]'"),
+        ("auto_tags", "TEXT DEFAULT '[]'"),
+    ]
+    for col, typedef in migrations:
+        if col not in existing:
+            conn.execute(f"ALTER TABLE places ADD COLUMN {col} {typedef}")
+    conn.commit()
     conn.close()
 
 
