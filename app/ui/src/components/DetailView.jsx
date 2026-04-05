@@ -1,6 +1,11 @@
 import { useState, useEffect, useRef } from "react";
 import { I, ib, TAG_COLORS, Chip, Label, doShare } from "../shared.jsx";
 
+const FOOD_TAGS = ["restaurant","food","cafe","bar","bakery","takeaway","meal_takeaway"];
+const isFood = (p) => [...(p.auto_tags||[]),...(p.tags||[])].some(t=>FOOD_TAGS.includes(t));
+
+const ReviewBtn = ({title,label,color,bg,onClick})=><a title={title} onClick={onClick} style={{width:34,height:34,borderRadius:8,border:"1px solid #EDE9E3",display:"flex",alignItems:"center",justifyContent:"center",cursor:"pointer",background:bg,flexShrink:0}}><span style={{fontWeight:800,fontSize:label.length>1?12:15,color}}>{label}</span></a>;
+
 export default function DetailView({place,onClose,onDelete,onEdit,routeStopIds,onPrev,onNext,onRefresh}) {
   const [refreshing,setRefreshing]=useState(false);
   const [isMobile,setIsMobile]=useState(window.innerWidth<768);
@@ -9,8 +14,8 @@ export default function DetailView({place,onClose,onDelete,onEdit,routeStopIds,o
   const doRefreshAction=async()=>{if(!onRefresh)return;setRefreshing(true);await onRefresh(place.id);setRefreshing(false);};
   const mapsUrl = place.google_maps_url||`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(place.name)}&query_place_id=${place.google_place_id||""}`;
   const exploreUrl = `https://www.google.com/search?tbm=isch&q=${encodeURIComponent(place.name+" "+place.city)}`;
-  const reviewsUrl = `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(place.name)}&query_place_id=${place.google_place_id||""}`;
   const inRoute = routeStopIds.includes(place.id);
+  const q = encodeURIComponent(place.name+(place.city?` ${place.city}`:""));
 
   const onTouchStart=e=>{touchRef.current={x:e.touches[0].clientX,y:e.touches[0].clientY};};
   const onTouchEnd=e=>{
@@ -25,8 +30,9 @@ export default function DetailView({place,onClose,onDelete,onEdit,routeStopIds,o
   };
 
   const spinRefresh = <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{animation:"spin 1s linear infinite"}}><polyline points="23 4 23 10 17 10"/><path d="M20.49 15a9 9 0 11-2.12-9.36L23 10"/></svg>;
+  const gmapsIcon = <svg width="18" height="18" viewBox="0 0 24 24" fill="none"><path d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7z" fill="#34A853"/><path d="M12 2v6.24l5.59 5.6C18.5 12.37 19 10.74 19 9c0-3.87-3.13-7-7-7z" fill="#FBBC04"/><path d="M12 2C8.13 2 5 5.13 5 9c0 1.74.5 3.37 1.41 4.84l5.59-5.6V2z" fill="#4285F4"/><circle cx="12" cy="9" r="2.75" fill="white"/></svg>;
 
-  // ── Photo block (clickable → explore images) ──
+  // ── Photo block ──
   const photoBlock = (style) => <div style={{background:"#F0EDE8",position:"relative",overflow:"hidden",cursor:"pointer",...style}} onClick={()=>window.open(exploreUrl,"_blank")}>
     {place.photo&&<img src={place.photo} alt="" style={{width:"100%",height:"100%",objectFit:"cover",display:"block"}} onError={e=>{e.target.style.display="none"}}/>}
     {inRoute&&<div style={{position:"absolute",top:10,left:10,display:"flex",alignItems:"center",gap:3,background:"rgba(27,122,90,.9)",padding:"3px 8px",borderRadius:5}}>
@@ -45,7 +51,7 @@ export default function DetailView({place,onClose,onDelete,onEdit,routeStopIds,o
         {place.city||place.country}{place.place_type?` · ${place.place_type}`:""}
       </div>
       {(place.rating>0||place.price_level)&&<div style={{display:"flex",alignItems:"center",gap:8,marginTop:6}}>
-        {place.rating>0&&<div onClick={()=>window.open(reviewsUrl,"_blank")} style={{display:"flex",alignItems:"center",gap:3,cursor:"pointer",padding:"3px 8px",borderRadius:6,background:"#FDF8F0",border:"1px solid #F0E6D4"}}>
+        {place.rating>0&&<div onClick={()=>window.open(mapsUrl,"_blank")} style={{display:"flex",alignItems:"center",gap:3,cursor:"pointer",padding:"3px 8px",borderRadius:6,background:"#FDF8F0",border:"1px solid #F0E6D4"}}>
           {I.star}<span style={{fontSize:14,color:"#854F0B",fontWeight:500}}>{place.rating}</span>
           {place.rating_count>0&&<span style={{fontSize:13,color:"#B5AFA5"}}>({place.rating_count>999?`${(place.rating_count/1000).toFixed(1)}k`:place.rating_count})</span>}
         </div>}
@@ -64,11 +70,6 @@ export default function DetailView({place,onClose,onDelete,onEdit,routeStopIds,o
     {place.editorial_summary&&<div>
       <Label>About</Label>
       <div style={{fontSize:14,color:"#6B665C",lineHeight:1.5,fontStyle:"italic",paddingLeft:10,borderLeft:"2px solid #E0DBD3"}}>{place.editorial_summary}</div>
-    </div>}
-
-    {place.address&&<div>
-      <Label>Address</Label>
-      <div style={{fontSize:14,color:"#2C2A26",lineHeight:1.4}}>{place.address}</div>
     </div>}
 
     {(place.phone||place.website)&&<div>
@@ -105,22 +106,39 @@ export default function DetailView({place,onClose,onDelete,onEdit,routeStopIds,o
     {place.notes&&<div style={{fontSize:14,color:"#6B665C",lineHeight:1.4,padding:"10px 12px",background:"#F7F5F1",borderRadius:6}}>
       <span style={{fontWeight:600,color:"#2C2A26"}}>Note:</span> {place.notes}</div>}
 
-    {/* Clickable static map → opens Google Maps */}
-    <div onClick={()=>window.open(mapsUrl,"_blank")} style={{borderRadius:8,overflow:"hidden",border:"1px solid #EDE9E3",flexShrink:0,cursor:"pointer",position:"relative"}}>
-      <img src={`/api/staticmap?lat=${place.lat}&lng=${place.lng}&zoom=15&w=500&h=200`} alt="Map" style={{width:"100%",height:150,objectFit:"cover",display:"block"}} onError={e=>{e.target.style.display="none"}}/>
-      <div style={{position:"absolute",bottom:8,right:8,background:"rgba(0,0,0,.45)",backdropFilter:"blur(4px)",borderRadius:6,padding:"4px 8px",display:"flex",alignItems:"center",gap:4,color:"#FFF",fontSize:12}}>
-        {I.gmaps} Open in Maps
+    {/* Also check — context-aware */}
+    <div>
+      <Label>Also check</Label>
+      <div style={{display:"flex",gap:6}}>
+        <a title="Google" onClick={()=>window.open(mapsUrl,"_blank")} style={{width:34,height:34,borderRadius:8,border:"1px solid #EDE9E3",display:"flex",alignItems:"center",justifyContent:"center",cursor:"pointer",background:"#FFF",flexShrink:0}}>{gmapsIcon}</a>
+        {isFood(place)&&<>
+          <ReviewBtn title="Burpple" label="B" color="#E25D3A" bg="#FEF5F2" onClick={()=>window.open(`https://www.burpple.com/search/sg?q=${q}`,"_blank")}/>
+          <ReviewBtn title="HungryGoWhere" label="H" color="#E23B3B" bg="#FEF2F2" onClick={()=>window.open(`https://www.hungrygowhere.com/search/?q=${q}`,"_blank")}/>
+          <ReviewBtn title="OpenRice" label="OR" color="#E17100" bg="#FFF7EF" onClick={()=>window.open(`https://sg.openrice.com/en/singapore/restaurants?what=${q}`,"_blank")}/>
+        </>}
+        <ReviewBtn title="TripAdvisor" label="TA" color="#00AA6C" bg="#F0FBF6" onClick={()=>window.open(`https://www.tripadvisor.com/Search?q=${q}`,"_blank")}/>
       </div>
     </div>
 
-    {/* Footer info */}
-    <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",paddingTop:4}}>
-      <div><div style={{fontSize:13,color:"#9E978C"}}>{place.region} · {place.country}{place.city?` · ${place.city}`:""}</div>
-        <div style={{fontSize:12,color:"#B5AFA5"}}>Saved {place.saved}</div></div>
+    {/* Map + address merged */}
+    <div onClick={()=>window.open(mapsUrl,"_blank")} style={{borderRadius:8,overflow:"hidden",border:"1px solid #EDE9E3",flexShrink:0,cursor:"pointer"}}>
+      <div style={{position:"relative"}}>
+        <img src={`/api/staticmap?lat=${place.lat}&lng=${place.lng}&zoom=15&w=500&h=200`} alt="Map" style={{width:"100%",height:150,objectFit:"cover",display:"block"}} onError={e=>{e.target.style.display="none"}}/>
+        <div style={{position:"absolute",bottom:8,right:8,background:"rgba(0,0,0,.45)",backdropFilter:"blur(4px)",borderRadius:6,padding:"4px 8px",display:"flex",alignItems:"center",gap:4,color:"#FFF",fontSize:12}}>
+          {I.gmaps} Open in Maps
+        </div>
+      </div>
+      {place.address&&<div style={{padding:"10px 12px",borderTop:"1px solid #EDE9E3",display:"flex",alignItems:"center",justifyContent:"space-between"}}>
+        <div style={{fontSize:13,color:"#2C2A26",lineHeight:1.3}}>{place.address}</div>
+        <span style={{color:"#C4BDB2",flexShrink:0,marginLeft:8}}>{I.chevron}</span>
+      </div>}
     </div>
+
+    {/* Saved date */}
+    <div style={{fontSize:12,color:"#B5AFA5"}}>Saved {place.saved}</div>
   </>;
 
-  // ── Header (actions only, no title) ──
+  // ── Header (actions only) ──
   const headerRow = <div style={{display:"flex",alignItems:"center",justifyContent:isMobile?"space-between":"flex-end",padding:"8px 12px",borderBottom:"1px solid #EDE9E3",flexShrink:0,background:"#FEFDFB"}}>
     {isMobile&&<button onClick={onClose} style={{background:"none",border:"none",cursor:"pointer",padding:4,color:"#2C2A26",display:"flex"}}>{I.back}</button>}
     <div style={{display:"flex",gap:4}}>
