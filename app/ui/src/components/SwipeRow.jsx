@@ -8,32 +8,33 @@ export default function SwipeRow({ place, onTap, onEdit, onDelete, isSelected, s
   const inRoute = (routeStopIds||[]).includes(place.id);
 
   const onTS = e => { if(selectMode)return; startX.current=e.touches[0].clientX; setSwiping(true); };
-  const onTM = e => { if(!swiping||selectMode)return; setOffset(Math.max(-90,Math.min(90,e.touches[0].clientX-startX.current))); };
-  const onTE = () => { if(!swiping)return; setSwiping(false); if(offset<-50)setOffset(-90); else if(offset>50)setOffset(90); else setOffset(0); };
+  const onTM = e => { if(!swiping||selectMode)return; setOffset(Math.max(-80,Math.min(80,e.touches[0].clientX-startX.current))); };
+  const onTE = () => { if(!swiping)return; setSwiping(false); if(offset<-40)setOffset(-80); else if(offset>40)setOffset(80); else setOffset(0); };
   const reset = () => setOffset(0);
 
   return (
-    <div style={{ position:"relative", overflow:"hidden", borderRadius:14, marginBottom:6 }}>
-      {/* Delete (swipe left) */}
-      <div style={{ position:"absolute", right:0, top:0, bottom:0, width:90, background:C.danger, display:"flex", alignItems:"center", justifyContent:"center", borderRadius:"0 14px 14px 0" }}>
-        <div onClick={()=>{reset();onDelete?.(place.id);}} style={{ color:"#FFF", display:"flex", flexDirection:"column", alignItems:"center", gap:4, cursor:"pointer" }}>
-          {I.trash}<span style={{fontSize:11,fontWeight:600}}>Delete</span>
+    <div style={{ position:"relative", overflow:"hidden" }}>
+      {/* Delete panel (behind, right side) */}
+      <div style={{ position:"absolute", right:0, top:0, bottom:0, width:80, background:C.danger, display:"flex", alignItems:"center", justifyContent:"center" }}>
+        <div onClick={()=>{reset();onDelete?.(place.id);}} style={{ color:"#FFF", display:"flex", flexDirection:"column", alignItems:"center", gap:3, cursor:"pointer" }}>
+          {I.trash}<span style={{fontSize:10,fontWeight:600}}>Delete</span>
         </div>
       </div>
-      {/* Edit (swipe right) */}
-      <div style={{ position:"absolute", left:0, top:0, bottom:0, width:90, background:C.accent, display:"flex", alignItems:"center", justifyContent:"center", borderRadius:"14px 0 0 14px" }}>
-        <div onClick={()=>{reset();onEdit?.(place);}} style={{ color:"#FFF", display:"flex", flexDirection:"column", alignItems:"center", gap:4, cursor:"pointer" }}>
-          {I.edit}<span style={{fontSize:11,fontWeight:600}}>Edit</span>
+      {/* Edit panel (behind, left side) */}
+      <div style={{ position:"absolute", left:0, top:0, bottom:0, width:80, background:C.accent, display:"flex", alignItems:"center", justifyContent:"center" }}>
+        <div onClick={()=>{reset();onEdit?.(place);}} style={{ color:"#FFF", display:"flex", flexDirection:"column", alignItems:"center", gap:3, cursor:"pointer" }}>
+          {I.edit}<span style={{fontSize:10,fontWeight:600}}>Edit</span>
         </div>
       </div>
-      {/* Row content */}
+      {/* Sliding row content */}
       <div onTouchStart={onTS} onTouchMove={onTM} onTouchEnd={onTE}
         onClick={()=> selectMode ? onToggleSelect?.(place.id) : (offset===0 && onTap?.(place))}
         style={{
-          display:"flex", alignItems:"center", gap:12, padding:"10px 12px",
+          display:"flex", alignItems:"center", gap:12,
+          padding:"10px 16px",
           background: isSelected ? C.accentLight : C.surface,
-          border:`1.5px solid ${isSelected ? C.accentBorder : C.borderLight}`,
-          borderRadius:14, cursor:"pointer", position:"relative", zIndex:2,
+          borderBottom:`1px solid ${isSelected ? C.accentBorder : C.borderLight}`,
+          cursor:"pointer", position:"relative", zIndex:2,
           transform:`translateX(${offset}px)`,
           transition: swiping ? "none" : "transform .25s cubic-bezier(.4,0,.2,1)",
         }}>
@@ -42,7 +43,7 @@ export default function SwipeRow({ place, onTap, onEdit, onDelete, isSelected, s
           {isSelected && <span style={{color:"#FFF"}}>{I.check}</span>}
         </div>}
         {/* Thumbnail */}
-        <div style={{ width:56, height:56, borderRadius:12, overflow:"hidden", flexShrink:0, background:C.card, position:"relative" }}>
+        <div style={{ width:52, height:52, borderRadius:10, overflow:"hidden", flexShrink:0, background:C.card, position:"relative" }}>
           {place.photo&&<img src={place.photo} alt="" style={{width:"100%",height:"100%",objectFit:"cover"}} onError={e=>{e.target.style.display="none"}}/>}
           {inRoute&&<div style={{ position:"absolute", bottom:2, right:2, width:10, height:10, borderRadius:"50%", background:C.success, border:"2px solid #FFF" }}/>}
         </div>

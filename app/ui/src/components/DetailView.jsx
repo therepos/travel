@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from "react";
-import { C, I, TAG_COLORS, Chip, Label, doShare } from "../shared.jsx";
+import { C, I, NAV_H, TAG_COLORS, Chip, Label, doShare } from "../shared.jsx";
 
 const FOOD_TAGS = ["restaurant","food","cafe","bar","bakery","takeaway","meal_takeaway"];
 const isFood = (p) => [...(p.auto_tags||[]),...(p.tags||[])].some(t=>FOOD_TAGS.includes(t));
@@ -16,7 +16,7 @@ export default function DetailView({place,onClose,onDelete,onEdit,routeStopIds,r
   const touchRef=useRef(null);
   useEffect(()=>{const h=()=>setIsMobile(window.innerWidth<768);window.addEventListener("resize",h);return()=>window.removeEventListener("resize",h);},[]);
 
-  // Push history state for back-button handling
+  // Back-button handling
   useEffect(()=>{
     window.history.pushState({detail:true},"");
     const handler=()=>onClose();
@@ -103,7 +103,8 @@ export default function DetailView({place,onClose,onDelete,onEdit,routeStopIds,r
     </div>
   </div>;
 
-  if(isMobile) return <div style={{position:"fixed",inset:0,zIndex:900,background:C.surface,animation:"fadeIn .15s",display:"flex",flexDirection:"column",overflowX:"hidden"}} onTouchStart={onTouchStart} onTouchEnd={onTouchEnd}>
+  // ── MOBILE — sits above nav bar (bottom: NAV_H) ──
+  if(isMobile) return <div style={{position:"fixed",top:0,left:0,right:0,bottom:NAV_H,zIndex:900,background:C.surface,animation:"fadeIn .15s",display:"flex",flexDirection:"column",overflowX:"hidden"}} onTouchStart={onTouchStart} onTouchEnd={onTouchEnd}>
     {headerRow}
     <div style={{flex:1,overflowY:"auto",overflowX:"hidden"}}>
       {photoBlock({width:"100%",aspectRatio:"4/3",flexShrink:0})}
@@ -111,6 +112,7 @@ export default function DetailView({place,onClose,onDelete,onEdit,routeStopIds,r
     </div>
   </div>;
 
+  // ── DESKTOP — modal overlay (unchanged) ──
   return <div style={{position:"fixed",inset:0,zIndex:900,background:"rgba(0,0,0,.65)",animation:"fadeIn .15s",display:"flex",alignItems:"center",justifyContent:"center"}} onClick={e=>{if(e.target===e.currentTarget)onClose();}}>
     <button onClick={onClose} style={{position:"fixed",top:14,right:14,zIndex:910,width:36,height:36,borderRadius:"50%",border:"none",background:"transparent",cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center",color:"#FFF"}}><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button>
     {onPrev&&<button onClick={e=>{e.stopPropagation();onPrev();}} style={{position:"fixed",left:14,top:"50%",transform:"translateY(-50%)",zIndex:910,width:40,height:40,borderRadius:"50%",border:"none",background:"rgba(255,255,255,.15)",cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center",color:"#FFF",backdropFilter:"blur(4px)"}}><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><polyline points="15 18 9 12 15 6"/></svg></button>}

@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { C, I } from "../shared.jsx";
+import { C, I, NAV_H } from "../shared.jsx";
 
 export default function SearchView({ places, onClose, onSelect }) {
   const [q,setQ]=useState("");
@@ -7,8 +7,8 @@ export default function SearchView({ places, onClose, onSelect }) {
     q && (p.name.toLowerCase().includes(q.toLowerCase())||(p.city||"").toLowerCase().includes(q.toLowerCase())||(p.country||"").toLowerCase().includes(q.toLowerCase()))
   );
   return (
-    <div style={{ position:"fixed", inset:0, zIndex:800, background:C.bg, display:"flex", flexDirection:"column", animation:"fadeIn .15s" }}>
-      <div style={{ padding:"14px 16px", display:"flex", alignItems:"center", gap:10 }}>
+    <div style={{ position:"fixed", top:0, left:0, right:0, bottom:NAV_H, zIndex:800, background:C.bg, display:"flex", flexDirection:"column", animation:"fadeIn .15s" }}>
+      <div style={{ padding:"14px 16px", display:"flex", alignItems:"center", gap:10, flexShrink:0 }}>
         <button onClick={onClose} style={{ width:38, height:38, borderRadius:10, border:"none", background:C.surface, cursor:"pointer", display:"flex", alignItems:"center", justifyContent:"center", color:C.text }}>{I.back}</button>
         <div style={{ flex:1, display:"flex", alignItems:"center", gap:8, padding:"11px 14px", borderRadius:12, background:C.surface, border:`1.5px solid ${C.border}` }}>
           <span style={{color:C.textLight}}>{I.search}</span>

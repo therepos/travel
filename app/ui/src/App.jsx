@@ -20,13 +20,9 @@ export default function App() {
   const [routePlanner,setRoutePlanner]=useState(null);
   const [showCapture,setShowCapture]=useState(false);
   const [showSearch,setShowSearch]=useState(false);
-
-  // Multi-select
   const [selectMode,setSelectMode]=useState(false);
   const [selected,setSelected]=useState(new Set());
   const longPressTimer=useRef(null);
-
-  // Context menu (3-dot)
   const [menuPlace,setMenuPlace]=useState(null);
 
   const load=()=>{
@@ -51,13 +47,11 @@ export default function App() {
   const handleRefresh=async id=>{try{const u=await api(`/places/${id}/refresh`,{method:"POST"});setPlaces(prev=>prev.map(p=>p.id===u.id?u:p));setDetail(u);}catch(e){console.error(e);}};
   const handleDeleteRoute=async id=>{try{await api(`/routes/${id}`,{method:"DELETE"});setRoutes(prev=>prev.filter(r=>r.id!==id));}catch(e){console.error(e);}};
 
-  // Select mode
   const toggleSelect=id=>{setSelected(prev=>{const n=new Set(prev);if(n.has(id))n.delete(id);else n.add(id);return n;});};
   const startLongPress=id=>{longPressTimer.current=setTimeout(()=>{setSelectMode(true);setSelected(new Set([id]));},500);};
   const cancelLongPress=()=>{if(longPressTimer.current)clearTimeout(longPressTimer.current);};
   const exitSelectMode=()=>{setSelectMode(false);setSelected(new Set());};
 
-  // Bulk actions
   const bulkDelete=async()=>{const ids=[...selected];for(const id of ids){try{await api(`/places/${id}`,{method:"DELETE"});}catch(e){}}setPlaces(prev=>prev.filter(p=>!ids.includes(p.id)));exitSelectMode();};
   const bulkAddToRoute=()=>{setRoutePlanner({initialStops:[...selected]});exitSelectMode();};
   const bulkExport=()=>{
@@ -68,7 +62,6 @@ export default function App() {
     exitSelectMode();
   };
 
-  // Nav handler — context-aware + button
   const handleNav=t=>{
     if(t==="search"){setShowSearch(true);return;}
     if(t==="add"){
@@ -95,15 +88,12 @@ export default function App() {
       {tab==="places"&&selectMode&&<button onClick={exitSelectMode} style={{padding:"7px 14px",borderRadius:10,border:`1.5px solid ${C.accent}`,background:C.accentLight,cursor:"pointer",fontSize:13,fontWeight:600,color:C.accent}}>Done</button>}
     </div>
 
-    {/* Capture bar (toggled by + in places tab) */}
     {showCapture&&tab==="places"&&<CaptureBar onSave={handleSave}/>}
-
-    {/* Filters */}
     {tab==="places"&&<SmartFilters places={places} filters={filters} setFilters={setFilters}/>}
 
     {/* Places list */}
     {tab==="places"?
-      <div style={{flex:1,overflowY:"auto",padding:"4px 12px",paddingBottom:(selectMode&&selected.size>0)?100:(showTripBar?NAV_H+60:NAV_H+8)}}>
+      <div style={{flex:1,overflowY:"auto",paddingBottom:(selectMode&&selected.size>0)?100:(showTripBar?NAV_H+60:NAV_H+8)}}>
         {loading?<div style={{textAlign:"center",padding:"50px",color:C.textLight,fontSize:14}}>Loading...</div>
         :fp.length===0?<div style={{textAlign:"center",padding:"50px 20px",color:C.textLight,fontSize:14}}>{places.length===0?"Tap + to save your first place!":"No matches"}</div>
         :fp.map(p=><div key={p.id}
@@ -125,7 +115,7 @@ export default function App() {
       <RoutesTab routes={routes} onEdit={r=>setRoutePlanner({initialStops:r.stops,editingRoute:r})} onDelete={handleDeleteRoute} onNew={()=>setRoutePlanner({initialStops:[]})}/>
     </div>}
 
-    {/* Detail view */}
+    {/* Detail view — sits above nav on mobile */}
     {detail&&(()=>{const idx=fp.findIndex(p=>p.id===detail.id);return <DetailView place={detail} onClose={()=>setDetail(null)} onDelete={handleDelete} onEdit={()=>setEditPlace(detail)} routeStopIds={routeStopIds} routes={routes}
       onPrev={idx>0?()=>setDetail(fp[idx-1]):null}
       onNext={idx<fp.length-1&&idx>=0?()=>setDetail(fp[idx+1]):null}
@@ -133,26 +123,21 @@ export default function App() {
       onOpenRoute={r=>setRoutePlanner({initialStops:r.stops,editingRoute:r})}
     />;})()}
 
-    {/* Edit modal */}
     {editPlace&&<EditModal place={editPlace} onClose={()=>setEditPlace(null)} onSaved={handleEdited}/>}
-
-    {/* Route planner */}
     {routePlanner&&<RoutePlanner allPlaces={places} initialStops={routePlanner.initialStops} editingRoute={routePlanner.editingRoute} onClose={()=>setRoutePlanner(null)} onSaved={async()=>{try{const d=await api("/routes");setRoutes(d.routes||[]);}catch(e){}setRoutePlanner(null);setTab("routes");}}/>}
 
-    {/* Trip bar (when filtered by location) */}
     {showTripBar&&<div style={{position:"fixed",bottom:NAV_H,left:0,right:0,background:`rgba(240,238,235,.95)`,backdropFilter:"blur(10px)",borderTop:`1px solid ${C.borderLight}`,padding:"10px 16px 12px",animation:"slideIn .3s",display:"flex",alignItems:"center",gap:8,zIndex:90}}>
       <div style={{flex:1}}><div style={{fontSize:14,fontWeight:600,color:C.text}}>{fp.length} in {locLabel}</div>
         <div style={{fontSize:12,color:C.textLight}}>Plan route with Google Maps</div></div>
       <button onClick={()=>setRoutePlanner({initialStops:fp.map(p=>p.id)})} style={{padding:"9px 16px",borderRadius:10,border:"none",background:C.card,color:C.textOnDark,fontSize:13,fontWeight:600,cursor:"pointer",display:"flex",alignItems:"center",gap:4}}>{I.route} Plan</button>
     </div>}
 
-    {/* Bottom bar: selection bar OR nav */}
+    {/* Bottom: selection bar OR nav — ALWAYS present */}
     {selectMode&&selected.size>0
       ?<SelectionBar count={selected.size} onAddToRoute={bulkAddToRoute} onExport={bulkExport} onDelete={bulkDelete} onCancel={exitSelectMode}/>
       :<BottomNav tab={tab} onTab={handleNav} captureOpen={showCapture}/>
     }
 
-    {/* Context menu (3-dot) */}
     {menuPlace&&<ContextMenu place={menuPlace} onClose={()=>setMenuPlace(null)}
       onEdit={p=>setEditPlace(p)}
       onDelete={handleDelete}
@@ -160,7 +145,7 @@ export default function App() {
       onAddToRoute={p=>{setRoutePlanner({initialStops:[p.id]});}}
     />}
 
-    {/* Search overlay */}
+    {/* Search overlay — above content, below nav */}
     {showSearch&&<SearchView places={places} onClose={()=>setShowSearch(false)} onSelect={p=>setDetail(p)}/>}
   </div>;
 }
