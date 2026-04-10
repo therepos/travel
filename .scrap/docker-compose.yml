@@ -1,0 +1,14 @@
+services:
+  travel:
+    image: ghcr.io/therepos/db-travel:latest
+    container_name: travel
+    restart: unless-stopped
+    ports:
+      - "8099:8000"
+    volumes:
+      - travel-data:/data
+    environment:
+      - GOOGLE_PLACES_API_KEY=${GOOGLE_PLACES_API_KEY}
+
+volumes:
+  travel-data:

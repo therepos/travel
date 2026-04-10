@@ -1,151 +1,320 @@
-import { useState, useEffect, useRef } from "react";
-import { api, C, I, NAV_H, doShare } from "./shared.jsx";
-import DetailView from "./components/DetailView.jsx";
+import { useState, useEffect, useRef, useCallback } from "react";
+import { api, C, INTENTS, Icon, doShare } from "./shared.jsx";
+import Sidebar from "./components/Sidebar.jsx";
+import PlaceList from "./components/PlaceList.jsx";
+import DetailPanel from "./components/DetailPanel.jsx";
+import SearchDropdown from "./components/SearchDropdown.jsx";
 import EditModal from "./components/EditModal.jsx";
-import CaptureBar from "./components/CaptureBar.jsx";
-import SmartFilters from "./components/SmartFilters.jsx";
 import RoutePlanner from "./components/RoutePlanner.jsx";
-import RoutesTab from "./components/RoutesTab.jsx";
-import BottomNav from "./components/BottomNav.jsx";
-import SwipeRow from "./components/SwipeRow.jsx";
-import ContextMenu from "./components/ContextMenu.jsx";
-import SelectionBar from "./components/SelectionBar.jsx";
-import SearchView from "./components/SearchView.jsx";
+import RouteList from "./components/RouteList.jsx";
+import RouteDetail from "./components/RouteDetail.jsx";
+import SettingsPage from "./components/SettingsPage.jsx";
+import MobileDetail from "./components/MobileDetail.jsx";
+import MobileNav from "./components/MobileNav.jsx";
+
+const FONT = "'Google Sans',-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif";
 
 export default function App() {
-  const [places,setPlaces]=useState([]);const [routes,setRoutes]=useState([]);const [loading,setLoading]=useState(true);
-  const [tab,setTab]=useState("places");
-  const [filters,setFilters]=useState({region:null,country:null,city:null,tag:null,autoTag:null});
-  const [detail,setDetail]=useState(null);const [editPlace,setEditPlace]=useState(null);
-  const [routePlanner,setRoutePlanner]=useState(null);
-  const [showCapture,setShowCapture]=useState(false);
-  const [showSearch,setShowSearch]=useState(false);
-  const [selectMode,setSelectMode]=useState(false);
-  const [selected,setSelected]=useState(new Set());
-  const longPressTimer=useRef(null);
-  const [menuPlace,setMenuPlace]=useState(null);
+  const [places,setPlaces] = useState([]);
+  const [routes,setRoutes] = useState([]);
+  const [loading,setLoading] = useState(true);
+  const [view,setView] = useState("places"); // places | routes | settings
+  const [selectedId,setSelectedId] = useState(null);
+  const [routeDetailId,setRouteDetailId] = useState(null);
+  const [editPlace,setEditPlace] = useState(null);
+  const [routePlanner,setRoutePlanner] = useState(null);
+  const [searchOpen,setSearchOpen] = useState(false);
+  const [searchQuery,setSearchQuery] = useState("");
+  const [mobileDetail,setMobileDetail] = useState(null);
+  const [mobileRouteDetail,setMobileRouteDetail] = useState(null);
 
-  const load=()=>{
+  // Sidebar filter state
+  const [expandedIntent,setExpandedIntent] = useState(null);
+  const [filterIntent,setFilterIntent] = useState(null);
+  const [filterCuisine,setFilterCuisine] = useState(null);
+  const [filterSubType,setFilterSubType] = useState(null);
+  const [filterRegion,setFilterRegion] = useState(null);
+  const [filterTag,setFilterTag] = useState(null);
+
+  const [isMobile,setIsMobile] = useState(false);
+  const containerRef = useRef(null);
+  const searchRef = useRef(null);
+
+  useEffect(() => {
+    const check = () => setIsMobile(window.innerWidth < 768);
+    check(); window.addEventListener("resize",check);
+    return () => window.removeEventListener("resize",check);
+  }, []);
+
+  const load = useCallback(() => {
     api("/places").then(d=>{setPlaces(d.places||[]);setLoading(false);}).catch(()=>setLoading(false));
     api("/routes").then(d=>setRoutes(d.routes||[])).catch(()=>{});
-  };
-  useEffect(load,[]);
+  }, []);
+  useEffect(load,[load]);
 
-  const fp=places.filter(p=>{
-    if(filters.region&&p.region!==filters.region)return false;
-    if(filters.country&&p.country!==filters.country)return false;
-    if(filters.city&&p.city!==filters.city)return false;
-    if(filters.tag&&!(p.tags||[]).includes(filters.tag))return false;
-    if(filters.autoTag&&!(p.auto_tags||[]).includes(filters.autoTag))return false;
+  // Filter places
+  const filtered = places.filter(p => {
+    if (filterIntent && p.intent !== filterIntent) return false;
+    if (filterCuisine && p.cuisine !== filterCuisine) return false;
+    if (filterSubType && p.sub_type !== filterSubType) return false;
+    if (filterRegion && p.region !== filterRegion) return false;
+    if (filterTag && !(p.tags||[]).includes(filterTag)) return false;
     return true;
   });
 
-  const goHome=()=>{setFilters({region:null,country:null,city:null,tag:null,autoTag:null});setDetail(null);setEditPlace(null);setRoutePlanner(null);setShowCapture(false);setShowSearch(false);exitSelectMode();setTab("places");};
-  const handleSave=p=>{setPlaces(prev=>[p,...prev]);};
-  const handleDelete=async id=>{try{await api(`/places/${id}`,{method:"DELETE"});setPlaces(prev=>prev.filter(p=>p.id!==id));setDetail(null);}catch(e){console.error(e);}};
-  const handleEdited=u=>{setPlaces(prev=>prev.map(p=>p.id===u.id?u:p));if(detail?.id===u.id)setDetail(u);};
-  const handleRefresh=async id=>{try{const u=await api(`/places/${id}/refresh`,{method:"POST"});setPlaces(prev=>prev.map(p=>p.id===u.id?u:p));setDetail(u);}catch(e){console.error(e);}};
-  const handleDeleteRoute=async id=>{try{await api(`/routes/${id}`,{method:"DELETE"});setRoutes(prev=>prev.filter(r=>r.id!==id));}catch(e){console.error(e);}};
+  // Group by city
+  const grouped = {};
+  filtered.forEach(p => {
+    const k = p.city && p.country ? `${p.city}, ${p.country}` : p.country || "Unknown";
+    if (!grouped[k]) grouped[k] = [];
+    grouped[k].push(p);
+  });
 
-  const toggleSelect=id=>{setSelected(prev=>{const n=new Set(prev);if(n.has(id))n.delete(id);else n.add(id);return n;});};
-  const startLongPress=id=>{longPressTimer.current=setTimeout(()=>{setSelectMode(true);setSelected(new Set([id]));},500);};
-  const cancelLongPress=()=>{if(longPressTimer.current)clearTimeout(longPressTimer.current);};
-  const exitSelectMode=()=>{setSelectMode(false);setSelected(new Set());};
+  // Breadcrumb
+  const breadcrumbParts = [];
+  if (filterIntent) {
+    const il = INTENTS.find(i=>i.key===filterIntent);
+    breadcrumbParts.push(il ? il.label : filterIntent);
+  }
+  if (filterCuisine) breadcrumbParts.push(filterCuisine);
+  if (filterSubType) breadcrumbParts.push(filterSubType);
+  if (filterRegion) breadcrumbParts.push(filterRegion);
+  if (filterTag) breadcrumbParts.push(filterTag);
 
-  const bulkDelete=async()=>{const ids=[...selected];for(const id of ids){try{await api(`/places/${id}`,{method:"DELETE"});}catch(e){}}setPlaces(prev=>prev.filter(p=>!ids.includes(p.id)));exitSelectMode();};
-  const bulkAddToRoute=()=>{setRoutePlanner({initialStops:[...selected]});exitSelectMode();};
-  const bulkExport=()=>{
-    const items=places.filter(p=>selected.has(p.id));
-    const text=items.map(p=>`${p.name}${p.city?` — ${p.city}`:""}${p.google_maps_url?`\n${p.google_maps_url}`:""}`).join("\n\n");
-    if(navigator.share){try{navigator.share({title:"My Travel List",text});}catch(e){}}
-    else{try{navigator.clipboard.writeText(text);}catch(e){}}
-    exitSelectMode();
+  const clearFilters = () => {
+    setFilterIntent(null);setFilterCuisine(null);setFilterSubType(null);
+    setFilterRegion(null);setFilterTag(null);setExpandedIntent(null);
   };
 
-  const handleNav=t=>{
-    if(t==="search"){setShowSearch(true);return;}
-    if(t==="add"){
-      if(tab==="places"){setShowCapture(!showCapture);}
-      else if(tab==="routes"){setRoutePlanner({initialStops:[]});}
-      return;
-    }
-    setTab(t);setShowCapture(false);exitSelectMode();
+  const selected = places.find(p => p.id === selectedId);
+  const routeDetail = routes.find(r => r.id === routeDetailId);
+
+  const handlePlaceClick = p => {
+    if (isMobile) { setMobileDetail(p); }
+    else { setSelectedId(p.id); setRouteDetailId(null); setRoutePlanner(null); }
   };
 
-  const routeStopIds=routes.flatMap(r=>r.stops||[]);
-  const locLabel=filters.city||filters.country||null;
-  const showTripBar=tab==="places"&&locLabel&&fp.length>1&&!detail&&!routePlanner&&!selectMode;
+  const handleRouteClick = r => {
+    if (isMobile) { setMobileRouteDetail(r); }
+    else { setRouteDetailId(r.id); setSelectedId(null); setRoutePlanner(null); }
+  };
 
-  return <div style={{width:"100vw",height:"100dvh",overflow:"hidden",background:C.bg,fontFamily:"'DM Sans',sans-serif",display:"flex",flexDirection:"column"}}>
-    <style>{`@keyframes fadeIn{from{opacity:0}to{opacity:1}}@keyframes slideIn{from{opacity:0;transform:translateY(-5px)}to{opacity:1;transform:translateY(0)}}@keyframes slideUp{from{transform:translateY(100%)}to{transform:translateY(0)}}@keyframes spin{from{transform:rotate(0deg)}to{transform:rotate(360deg)}}`}</style>
+  const handleSave = p => { setPlaces(prev=>[p,...prev]); setSearchOpen(false); setSearchQuery(""); };
 
-    {/* No header — capture bar toggled by + */}
-    {showCapture&&tab==="places"&&<CaptureBar onSave={handleSave}/>}
+  const handleDelete = async id => {
+    try { await api(`/places/${id}`,{method:"DELETE"}); setPlaces(prev=>prev.filter(p=>p.id!==id));
+      if (selectedId===id) setSelectedId(null); if (mobileDetail?.id===id) setMobileDetail(null);
+    } catch(e) { console.error(e); }
+  };
 
-    {/* Drill-down filters */}
-    {tab==="places"&&<SmartFilters places={places} filters={filters} setFilters={setFilters} filteredCount={fp.length}/>}
+  const handleEdited = u => {
+    setPlaces(prev=>prev.map(p=>p.id===u.id?u:p));
+    if (mobileDetail?.id===u.id) setMobileDetail(u);
+    setEditPlace(null);
+  };
 
-    {/* Done button for select mode */}
-    {tab==="places"&&selectMode&&<div style={{padding:"0 16px 6px",flexShrink:0,display:"flex",justifyContent:"flex-end"}}>
-      <button onClick={exitSelectMode} style={{padding:"7px 14px",borderRadius:10,border:`1.5px solid ${C.accent}`,background:C.accentLight,cursor:"pointer",fontSize:13,fontWeight:600,color:C.accent}}>Done</button>
-    </div>}
+  const handleRefresh = async id => {
+    try { const u = await api(`/places/${id}/refresh`,{method:"POST"});
+      setPlaces(prev=>prev.map(p=>p.id===u.id?u:p));
+      if (selectedId===id) setSelectedId(id);
+      if (mobileDetail?.id===id) setMobileDetail(u);
+    } catch(e) { console.error(e); }
+  };
 
-    {/* Places list */}
-    {tab==="places"?
-      <div style={{flex:1,overflowY:"auto",paddingBottom:(selectMode&&selected.size>0)?100:(showTripBar?NAV_H+60:NAV_H+8)}}>
-        {loading?<div style={{textAlign:"center",padding:"50px",color:C.textLight,fontSize:14}}>Loading...</div>
-        :fp.length===0?<div style={{textAlign:"center",padding:"50px 20px",color:C.textLight,fontSize:14}}>{places.length===0?"Tap + to save your first place!":"No matches"}</div>
-        :fp.map(p=><div key={p.id}
-          onTouchStart={()=>!selectMode&&startLongPress(p.id)}
-          onTouchEnd={cancelLongPress}
-          onTouchMove={cancelLongPress}>
-          <SwipeRow place={p}
-            onTap={p=>setDetail(p)}
-            onEdit={p=>setEditPlace(p)}
-            onDelete={handleDelete}
-            isSelected={selected.has(p.id)}
-            selectMode={selectMode}
-            onToggleSelect={toggleSelect}
-            onDotsClick={id=>setMenuPlace(places.find(x=>x.id===id))}
-            routeStopIds={routeStopIds}/>
-        </div>)}
-      </div>
-    :<div style={{flex:1,display:"flex",flexDirection:"column",overflow:"hidden",paddingBottom:NAV_H}}>
-      <RoutesTab routes={routes} onEdit={r=>setRoutePlanner({initialStops:r.stops,editingRoute:r})} onDelete={handleDeleteRoute} onNew={()=>setRoutePlanner({initialStops:[]})}/>
-    </div>}
+  const handleDeleteRoute = async id => {
+    try { await api(`/routes/${id}`,{method:"DELETE"}); setRoutes(prev=>prev.filter(r=>r.id!==id));
+      if (routeDetailId===id) setRouteDetailId(null);
+    } catch(e) { console.error(e); }
+  };
 
-    {/* Detail view */}
-    {detail&&(()=>{const idx=fp.findIndex(p=>p.id===detail.id);return <DetailView place={detail} onClose={()=>setDetail(null)} onDelete={handleDelete} onEdit={()=>setEditPlace(detail)} routeStopIds={routeStopIds} routes={routes}
-      onPrev={idx>0?()=>setDetail(fp[idx-1]):null}
-      onNext={idx<fp.length-1&&idx>=0?()=>setDetail(fp[idx+1]):null}
-      onRefresh={handleRefresh}
-      onOpenRoute={r=>setRoutePlanner({initialStops:r.stops,editingRoute:r})}
-    />;})()}
+  const handleRouteSaved = async () => {
+    try { const d = await api("/routes"); setRoutes(d.routes||[]); } catch(e) {}
+    setRoutePlanner(null); setView("routes");
+  };
 
-    {editPlace&&<EditModal place={editPlace} onClose={()=>setEditPlace(null)} onSaved={handleEdited}/>}
-    {routePlanner&&<RoutePlanner allPlaces={places} initialStops={routePlanner.initialStops} editingRoute={routePlanner.editingRoute} onClose={()=>setRoutePlanner(null)} onSaved={async()=>{try{const d=await api("/routes");setRoutes(d.routes||[]);}catch(e){}setRoutePlanner(null);setTab("routes");}}/>}
+  const switchView = v => {
+    setView(v); setSelectedId(null); setRouteDetailId(null);
+    setRoutePlanner(null); setSearchOpen(false);
+  };
 
-    {showTripBar&&<div style={{position:"fixed",bottom:NAV_H,left:0,right:0,background:`rgba(240,238,235,.95)`,backdropFilter:"blur(10px)",borderTop:`1px solid ${C.borderLight}`,padding:"10px 16px 12px",animation:"slideIn .3s",display:"flex",alignItems:"center",gap:8,zIndex:90}}>
-      <div style={{flex:1}}><div style={{fontSize:14,fontWeight:600,color:C.text}}>{fp.length} in {locLabel}</div>
-        <div style={{fontSize:12,color:C.textLight}}>Plan route with Google Maps</div></div>
-      <button onClick={()=>setRoutePlanner({initialStops:fp.map(p=>p.id)})} style={{padding:"9px 16px",borderRadius:10,border:"none",background:C.card,color:C.textOnDark,fontSize:13,fontWeight:600,cursor:"pointer",display:"flex",alignItems:"center",gap:4}}>{I.route} Plan</button>
-    </div>}
+  const openRoutePlanner = (initialStops=[], editingRoute=null) => {
+    setRoutePlanner({initialStops, editingRoute});
+    setSelectedId(null); setRouteDetailId(null);
+  };
 
-    {/* Bottom: selection bar OR nav — always present */}
-    {selectMode&&selected.size>0
-      ?<SelectionBar count={selected.size} onAddToRoute={bulkAddToRoute} onExport={bulkExport} onDelete={bulkDelete} onCancel={exitSelectMode}/>
-      :<BottomNav tab={tab} onTab={handleNav} captureOpen={showCapture}/>
-    }
+  // Mobile full-screen views
+  if (isMobile && mobileDetail) return <MobileDetail place={mobileDetail}
+    onClose={()=>setMobileDetail(null)} onDelete={handleDelete}
+    onEdit={p=>{setEditPlace(p);}} onRefresh={handleRefresh} onShare={doShare}
+    editModal={editPlace && <EditModal place={editPlace} onClose={()=>setEditPlace(null)} onSaved={handleEdited}/>}
+  />;
 
-    {/* Context menu (3-dot on list row) */}
-    {menuPlace&&<ContextMenu place={menuPlace} onClose={()=>setMenuPlace(null)}
-      onEdit={p=>setEditPlace(p)}
-      onDelete={handleDelete}
-      onShare={p=>doShare(p)}
-      onAddToRoute={p=>{setRoutePlanner({initialStops:[p.id]});}}
-    />}
-
-    {/* Search overlay — always accessible, sits above content below nav */}
-    {showSearch&&<SearchView places={places} onClose={()=>setShowSearch(false)} onSelect={p=>{setDetail(p);setShowSearch(false);}}/>}
+  if (isMobile && mobileRouteDetail) return <div style={{width:"100%",height:"100dvh",fontFamily:FONT,color:C.text,display:"flex",flexDirection:"column",background:C.bg}}>
+    <RouteDetail route={mobileRouteDetail} onClose={()=>setMobileRouteDetail(null)}
+      onPlaceClick={p=>{setMobileRouteDetail(null);setMobileDetail(p);}}
+      onEdit={r=>openRoutePlanner(r.stops,r)} places={places}/>
+    <MobileNav view={view} onNav={v=>{setMobileRouteDetail(null);switchView(v);}}/>
   </div>;
+
+  // ── MOBILE LAYOUT ──
+  if (isMobile) return <div ref={containerRef} style={{width:"100%",height:"100dvh",fontFamily:FONT,color:C.text,display:"flex",flexDirection:"column",background:C.bg,position:"relative"}}>
+    {/* Search bar */}
+    <div style={{margin:"8px 12px 0",padding:"0 4px 0 12px",height:42,background:C.surface,borderRadius:24,display:"flex",alignItems:"center",gap:10,flexShrink:0,border:searchOpen?`1.5px solid ${C.blue}`:"1.5px solid transparent"}}
+      onClick={()=>!searchOpen&&setSearchOpen(true)}>
+      <Icon name="search" size={18} color={searchOpen?C.blue:C.textLight}/>
+      {searchOpen ? <input value={searchQuery} onChange={e=>setSearchQuery(e.target.value)} autoFocus
+        placeholder="Search saved or add new..." style={{flex:1,border:"none",background:"none",fontSize:15,color:C.text,outline:"none",fontFamily:FONT}}/>
+      : <span style={{flex:1,fontSize:15,color:C.textLight}}>Search your places</span>}
+      {searchOpen && <button onClick={e=>{e.stopPropagation();setSearchOpen(false);setSearchQuery("");}} style={{background:"none",border:"none",padding:4,cursor:"pointer"}}><Icon name="x" size={16} color={C.textLight}/></button>}
+      {!searchOpen && <div style={{width:28,height:28,borderRadius:"50%",background:C.blue,color:"#fff",display:"flex",alignItems:"center",justifyContent:"center",fontSize:12,fontWeight:500}}>R</div>}
+    </div>
+
+    {searchOpen ? <SearchDropdown query={searchQuery} places={places} onSave={handleSave} onSelect={p=>{setSearchOpen(false);setSearchQuery("");handlePlaceClick(p);}} isMobile={true} onClose={()=>{setSearchOpen(false);setSearchQuery("");}}/> : <>
+      {/* Intent chips */}
+      {view==="places" && <div style={{display:"flex",gap:6,padding:"8px 12px 4px",overflowX:"auto",flexShrink:0,WebkitOverflowScrolling:"touch"}}>
+        <Chip label="All" active={!filterIntent} onClick={clearFilters}/>
+        {INTENTS.map(i=><Chip key={i.key} label={i.label} active={filterIntent===i.key}
+          onClick={()=>{if(filterIntent===i.key){clearFilters();}else{setFilterIntent(i.key);setFilterCuisine(null);setFilterSubType(null);setFilterTag(null);}}}/>)}
+      </div>}
+
+      {/* Sub-chips when intent selected */}
+      {view==="places" && filterIntent && (() => {
+        const subs = filterIntent==="eat"
+          ? [...new Set(places.filter(p=>p.intent===filterIntent&&p.cuisine).map(p=>p.cuisine))].sort()
+          : [...new Set(places.filter(p=>p.intent===filterIntent&&p.sub_type).map(p=>p.sub_type))].sort();
+        if (!subs.length) return null;
+        const current = filterIntent==="eat" ? filterCuisine : filterSubType;
+        return <div style={{display:"flex",gap:6,padding:"4px 12px 2px",overflowX:"auto",flexShrink:0}}>
+          {subs.map(s=><Chip key={s} label={s} active={current===s}
+            onClick={()=>{if(filterIntent==="eat"){setFilterCuisine(filterCuisine===s?null:s);}else{setFilterSubType(filterSubType===s?null:s);}}}/>)}
+        </div>;
+      })()}
+
+      {/* Breadcrumb */}
+      {view==="places" && breadcrumbParts.length>0 && <div style={{display:"flex",alignItems:"center",gap:4,padding:"3px 12px 0",fontSize:12,flexShrink:0}}>
+        {breadcrumbParts.map((p,i)=><span key={i}>{i>0&&<span style={{color:C.border,margin:"0 2px"}}>›</span>}<b style={{color:C.blue,fontWeight:500}}>{p}</b></span>)}
+        <span style={{color:C.textLight,marginLeft:"auto"}}>{filtered.length}</span>
+        <button onClick={clearFilters} style={{width:18,height:18,borderRadius:"50%",background:C.blueBg,border:"none",display:"flex",alignItems:"center",justifyContent:"center",cursor:"pointer",marginLeft:4}}>
+          <Icon name="x" size={10} color={C.blue} sw={2.5}/>
+        </button>
+      </div>}
+
+      {/* Content */}
+      {view==="places" ? <PlaceList grouped={grouped} filtered={filtered} loading={loading}
+        selectedId={null} onPlaceClick={handlePlaceClick} isMobile={true}/>
+      : view==="routes" ? <div style={{flex:1,overflowY:"auto",padding:"8px 12px"}}>
+        <RouteList routes={routes} onRouteClick={handleRouteClick} onDelete={handleDeleteRoute}
+          onNew={()=>openRoutePlanner([])} isMobile={true} selectedId={null}/>
+      </div>
+      : <SettingsPage isMobile={true}/>}
+
+      {/* FAB */}
+      {view==="places" && <button onClick={()=>setSearchOpen(true)} style={{position:"absolute",bottom:64,right:12,width:52,height:52,borderRadius:16,background:C.blue,color:"#fff",border:"none",display:"flex",alignItems:"center",justifyContent:"center",zIndex:4,boxShadow:"0 2px 8px rgba(26,115,232,0.35)",cursor:"pointer"}}>
+        <Icon name="plus" size={22} color="#fff" sw={2.5}/>
+      </button>}
+
+      <MobileNav view={view} onNav={switchView}/>
+    </>}
+
+    {editPlace && <EditModal place={editPlace} onClose={()=>setEditPlace(null)} onSaved={handleEdited}/>}
+    {routePlanner && <RoutePlanner allPlaces={places} initialStops={routePlanner.initialStops}
+      editingRoute={routePlanner.editingRoute} onClose={()=>setRoutePlanner(null)} onSaved={handleRouteSaved} isMobile={true}/>}
+  </div>;
+
+  // ── DESKTOP LAYOUT ──
+  return <div ref={containerRef} style={{width:"100vw",height:"100vh",fontFamily:FONT,color:C.text,display:"flex",flexDirection:"column",background:C.bg,overflow:"hidden"}}>
+    <style>{`@keyframes fadeIn{from{opacity:0}to{opacity:1}}@keyframes slideUp{from{transform:translateY(100%)}to{transform:translateY(0)}}*{box-sizing:border-box;margin:0;padding:0}button{font-family:${FONT};cursor:pointer}input,textarea{font-family:${FONT}}::-webkit-scrollbar{width:6px}::-webkit-scrollbar-thumb{background:#dadce0;border-radius:3px}::-webkit-scrollbar-track{background:transparent}`}</style>
+
+    {/* Top bar */}
+    <div style={{height:52,borderBottom:`1px solid ${C.border}`,display:"flex",alignItems:"center",padding:"0 16px",gap:14,flexShrink:0,position:"relative",zIndex:20}}>
+      <div style={{display:"flex",alignItems:"center",gap:7,fontSize:17,fontWeight:500,color:C.textMid,width:180,flexShrink:0,cursor:"pointer"}} onClick={()=>{switchView("places");clearFilters();}}>
+        <Icon name="pin" size={22} color={C.blue} fill="none"/> Travel
+      </div>
+      <div ref={searchRef} style={{flex:1,maxWidth:520,position:"relative"}}>
+        <div style={{height:38,background:searchOpen?"#fff":C.borderLight,borderRadius:searchOpen?"8px 8px 0 0":"8px",display:"flex",alignItems:"center",gap:8,padding:"0 12px",
+          border:searchOpen?`1.5px solid ${C.blue}`:"1.5px solid transparent",transition:"all .15s"}}
+          onClick={()=>!searchOpen&&setSearchOpen(true)}>
+          <Icon name="search" size={16} color={searchOpen?C.blue:C.textLight}/>
+          <input value={searchQuery} onChange={e=>setSearchQuery(e.target.value)}
+            onFocus={()=>setSearchOpen(true)}
+            placeholder="Search saved places or add new..."
+            style={{flex:1,border:"none",background:"none",fontSize:13,color:C.text,outline:"none"}}/>
+          {searchOpen && <button onClick={e=>{e.stopPropagation();setSearchOpen(false);setSearchQuery("");}}
+            style={{background:"none",border:"none",padding:2}}><Icon name="x" size={14} color={C.textLight}/></button>}
+        </div>
+        {searchOpen && <SearchDropdown query={searchQuery} places={places} onSave={handleSave}
+          onSelect={p=>{setSearchOpen(false);setSearchQuery("");handlePlaceClick(p);}}
+          isMobile={false} anchorRef={searchRef}
+          onClose={()=>{setSearchOpen(false);setSearchQuery("");}}/>}
+      </div>
+      <button onClick={()=>switchView("settings")} style={{background:"none",border:"none",padding:4,color:view==="settings"?C.blue:C.textMid}}>
+        <Icon name="gear" size={18}/>
+      </button>
+      <div style={{width:30,height:30,borderRadius:"50%",background:C.blue,color:"#fff",display:"flex",alignItems:"center",justifyContent:"center",fontSize:12,fontWeight:500}}>R</div>
+    </div>
+
+    <div style={{display:"flex",flex:1,overflow:"hidden"}}>
+      {/* Sidebar */}
+      <Sidebar places={places} view={view} switchView={switchView}
+        expandedIntent={expandedIntent} setExpandedIntent={setExpandedIntent}
+        filterIntent={filterIntent} setFilterIntent={setFilterIntent}
+        filterCuisine={filterCuisine} setFilterCuisine={setFilterCuisine}
+        filterSubType={filterSubType} setFilterSubType={setFilterSubType}
+        filterRegion={filterRegion} setFilterRegion={setFilterRegion}
+        filterTag={filterTag} setFilterTag={setFilterTag}
+        clearFilters={clearFilters} routes={routes}/>
+
+      {/* Main list */}
+      <div style={{width:260,display:"flex",flexDirection:"column",borderRight:`1px solid ${C.border}`,flexShrink:0}}>
+        <div style={{display:"flex",alignItems:"center",padding:"6px 10px",borderBottom:`1px solid ${C.borderLight}`,flexShrink:0,gap:4}}>
+          <div style={{display:"flex",alignItems:"center",gap:3,fontSize:10,flex:1,color:C.textLight}}>
+            {breadcrumbParts.length > 0 ? <>
+              {breadcrumbParts.map((p,i)=><span key={i}>{i>0&&<span style={{color:C.border,margin:"0 2px"}}>›</span>}<b style={{color:C.blue,fontWeight:500}}>{p}</b></span>)}
+              <span style={{marginLeft:4}}>· {filtered.length}</span>
+              <button onClick={clearFilters} style={{width:16,height:16,borderRadius:"50%",background:C.blueBg,border:"none",display:"flex",alignItems:"center",justifyContent:"center",cursor:"pointer",marginLeft:2}}>
+                <Icon name="x" size={8} color={C.blue} sw={2.5}/>
+              </button>
+            </> : <span>All places · {filtered.length}</span>}
+          </div>
+          <button onClick={()=>setSearchOpen(true)} style={{display:"flex",alignItems:"center",gap:4,padding:"4px 10px",borderRadius:14,background:C.blue,color:"#fff",border:"none",fontSize:10,fontWeight:500}}>
+            <Icon name="plus" size={12} color="#fff" sw={2.5}/> Add
+          </button>
+        </div>
+
+        {view === "places" ? <PlaceList grouped={grouped} filtered={filtered} loading={loading}
+          selectedId={selectedId} onPlaceClick={handlePlaceClick} isMobile={false}/>
+        : view === "routes" ? <div style={{flex:1,overflowY:"auto",padding:"6px 0"}}>
+          <RouteList routes={routes} onRouteClick={handleRouteClick} onDelete={handleDeleteRoute}
+            onNew={()=>openRoutePlanner([])} isMobile={false} selectedId={routeDetailId}/>
+        </div>
+        : null}
+      </div>
+
+      {/* Right panel */}
+      {view === "settings" ? <SettingsPage isMobile={false}/>
+      : routePlanner ? <RoutePlanner allPlaces={places} initialStops={routePlanner.initialStops}
+          editingRoute={routePlanner.editingRoute} onClose={()=>setRoutePlanner(null)} onSaved={handleRouteSaved} isMobile={false}/>
+      : view === "places" && selected ? <DetailPanel place={selected}
+          onClose={()=>setSelectedId(null)} onDelete={handleDelete}
+          onEdit={p=>setEditPlace(p)} onRefresh={handleRefresh} onShare={doShare}/>
+      : view === "routes" && routeDetail ? <RouteDetail route={routeDetail}
+          onClose={()=>setRouteDetailId(null)} onPlaceClick={p=>{setSelectedId(p.id);setRouteDetailId(null);setView("places");}}
+          onEdit={r=>openRoutePlanner(r.stops,r)} places={places}/>
+      : <div style={{flex:1,display:"flex",alignItems:"center",justifyContent:"center",color:C.border,fontSize:13,borderLeft:`1px solid ${C.border}`}}>
+          {view==="places" ? "Select a place to view details" : "Select a route to view details"}
+        </div>}
+    </div>
+
+    {editPlace && <EditModal place={editPlace} onClose={()=>setEditPlace(null)} onSaved={handleEdited}/>}
+    {/* Scrim for search on desktop */}
+    {searchOpen && <div onClick={()=>{setSearchOpen(false);setSearchQuery("");}} style={{position:"fixed",inset:0,background:"rgba(0,0,0,.08)",zIndex:10}}/>}
+  </div>;
+}
+
+function Chip({label, active, onClick}) {
+  return <button onClick={onClick} style={{padding:"5px 12px",borderRadius:8,fontSize:12,whiteSpace:"nowrap",
+    border:`1px solid ${active?C.blueBg:C.border}`,background:active?C.blueBg:"#fff",
+    color:active?C.blue:C.textMid,fontWeight:500,cursor:"pointer",fontFamily:"inherit",flexShrink:0}}>
+    {label}
+  </button>;
 }
