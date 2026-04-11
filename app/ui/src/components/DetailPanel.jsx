@@ -12,6 +12,7 @@ const HIGHLIGHT_COLORS = {
 
 const TRANSIT_STYLES = {
   MRT:{color:"#1A73E8",bg:"#E8F0FE",icon:<path d="M4 17V6a4 4 0 014-4h8a4 4 0 014 4v11M6 17h12M8 21l-2-4M16 21l2-4M6 10h12" strokeLinecap="round" strokeLinejoin="round"/>},
+  LRT:{color:"#5E35B1",bg:"#EDE7F6",icon:<path d="M4 17V6a4 4 0 014-4h8a4 4 0 014 4v11M6 17h12M8 21l-2-4M16 21l2-4M6 10h12" strokeLinecap="round" strokeLinejoin="round"/>},
   Bus:{color:"#137333",bg:"#e6f4ea",icon:<><rect x="4" y="3" width="16" height="14" rx="2"/><path d="M4 10h16M8 17v2M16 17v2M7 13.5h.01M17 13.5h.01" strokeLinecap="round" strokeLinejoin="round"/></>},
   Train:{color:"#92610e",bg:"#fef7e0",icon:<path d="M4 17V6a4 4 0 014-4h8a4 4 0 014 4v11M6 17h12M8 21l-2-4M16 21l2-4M6 10h12" strokeLinecap="round" strokeLinejoin="round"/>},
   Transit:{color:"#5F6368",bg:"#f1f3f4",icon:<path d="M4 17V6a4 4 0 014-4h8a4 4 0 014 4v11M6 17h12M8 21l-2-4M16 21l2-4M6 10h12" strokeLinecap="round" strokeLinejoin="round"/>},
@@ -23,7 +24,8 @@ function TransitIcon({category, size=16}) {
 }
 
 function transitDirectionsUrl(stationName, category, place) {
-  const origin = `${stationName} ${category==="MRT"?"MRT Station":category==="Bus"?"Bus Stop":category==="Train"?"Train Station":"Station"}`;
+  const suffix = {MRT:"MRT Station",LRT:"LRT Station",Bus:"Bus Stop",Train:"Train Station"}[category]||"Station";
+  const origin = `${stationName} ${suffix}`;
   const dest = place.address || place.name;
   return `https://www.google.com/maps/dir/?api=1&origin=${encodeURIComponent(origin)}&destination=${encodeURIComponent(dest)}&travelmode=walking`;
 }

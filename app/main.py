@@ -503,15 +503,23 @@ def _fmt_dist(m):
     return f"{m/1000:.1f}km"
 
 def _classify_transit(types, stype):
-    """Classify into MRT, Bus, or Train"""
+    """Classify into MRT, LRT, Bus, or Train"""
     sl = stype.lower() if stype else ""
-    if any(t in types for t in ["subway_station","light_rail_station"]) or "subway" in sl or "mrt" in sl or "metro" in sl:
+    # LRT first (before MRT check) — Singapore light rail
+    if "light_rail_station" in types or "lrt" in sl or "light rail" in sl:
+        return "LRT"
+    if any(t in types for t in ["subway_station"]) or "subway" in sl or "mrt" in sl or "metro" in sl:
         return "MRT"
-    if "bus_station" in types or "bus" in sl:
+    if any(t in types for t in ["bus_station","bus_stop"]) or "bus" in sl:
         return "Bus"
     if "train_station" in types or "train" in sl:
         return "Train"
     if "transit_station" in types:
+        # transit_station is a generic fallback — check name for clues
+        if "mrt" in (stype or "").lower() or "mrt" in sl:
+            return "MRT"
+        if "lrt" in (stype or "").lower() or "lrt" in sl:
+            return "LRT"
         return "MRT"
     return "Transit"
 
@@ -522,11 +530,13 @@ async def nearby_transit(lat:float,lng:float):
              "X-Goog-FieldMask":"places.displayName,places.location,places.types,places.primaryTypeDisplayName"}
     raw=[]
     async with httpx.AsyncClient(timeout=10) as client:
-        for ttype in ["subway_station","train_station","transit_station","bus_station"]:
+        for ttype in ["subway_station","light_rail_station","train_station","transit_station","bus_station","bus_stop"]:
             try:
+                # Use tighter radius for bus stops (they're everywhere), wider for rail
+                radius = 800.0 if ttype in ("bus_station","bus_stop") else 1500.0
                 resp=await client.post("https://places.googleapis.com/v1/places:searchNearby",
-                    json={"includedTypes":[ttype],"maxResultCount":3,
-                          "locationRestriction":{"circle":{"center":{"latitude":lat,"longitude":lng},"radius":1500.0}}},
+                    json={"includedTypes":[ttype],"maxResultCount":5,
+                          "locationRestriction":{"circle":{"center":{"latitude":lat,"longitude":lng},"radius":radius}}},
                     headers=headers)
                 if resp.status_code==200:
                     for p in resp.json().get("places",[]):
@@ -542,15 +552,15 @@ async def nearby_transit(lat:float,lng:float):
                         raw.append({"name":name,"distance":_fmt_dist(dist),"distance_m":dist,"category":category})
             except: pass
     raw.sort(key=lambda s:s["distance_m"])
-    # Group by category, max 2 per group
+    # Group by category, max 2 per group, prioritise closest
     groups={}
     for s in raw:
         cat=s["category"]
         if cat not in groups: groups[cat]=[]
         if len(groups[cat])<2:
             groups[cat].append({"name":s["name"],"distance":s["distance"]})
-    # Order: MRT first, then Bus, then Train, then others
-    order=["MRT","Bus","Train","Transit"]
+    # Order: MRT first, then LRT, Bus, Train, others
+    order=["MRT","LRT","Bus","Train","Transit"]
     result=[]
     for cat in order:
         if cat in groups:
