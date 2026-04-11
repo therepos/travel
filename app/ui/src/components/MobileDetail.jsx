@@ -21,9 +21,10 @@ function TransitIcon({category, size=16}) {
   return <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={s.color} strokeWidth={2} style={{flexShrink:0}}>{s.icon}</svg>;
 }
 
-function transitSearchUrl(name, category) {
-  const q = `${name} ${category==="MRT"?"MRT Station":category==="Bus"?"Bus Stop":category==="Train"?"Train Station":"Station"}`;
-  return `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(q)}`;
+function transitDirectionsUrl(stationName, category, place) {
+  const origin = `${stationName} ${category==="MRT"?"MRT Station":category==="Bus"?"Bus Stop":category==="Train"?"Train Station":"Station"}`;
+  const dest = place.address || place.name;
+  return `https://www.google.com/maps/dir/?api=1&origin=${encodeURIComponent(origin)}&destination=${encodeURIComponent(dest)}&travelmode=walking`;
 }
 
 export default function MobileDetail({place, onClose, onDelete, onEdit, onRefresh, onShare, editModal}) {
@@ -130,24 +131,23 @@ export default function MobileDetail({place, onClose, onDelete, onEdit, onRefres
         {(place.amenities||[]).length>0 && <Sec label="Amenities">{(place.amenities||[]).map(a=><Tag key={a}>{a}</Tag>)}</Sec>}
         {(place.payment||[]).length>0 && <Sec label="Payment">{(place.payment||[]).map(a=><Tag key={a}>{a}</Tag>)}</Sec>}
 
-        {/* Getting there — clean clickable rows */}
+        {/* Getting there — clickable rows with walking directions */}
         {transport && (transport.groups||[]).length>0 && <div style={{marginTop:12,paddingTop:12,borderTop:`1px solid ${C.borderLight}`}}>
           <div style={{fontSize:12,color:C.textLight,fontWeight:500,textTransform:"uppercase",letterSpacing:".4px",marginBottom:8}}>Getting there</div>
           <div style={{display:"flex",flexDirection:"column",gap:6}}>
             {(transport.groups||[]).flatMap(g=>g.stations.map((s,i)=>{
               const st=TRANSIT_STYLES[g.category]||TRANSIT_STYLES.Transit;
               const suffix = g.category==="MRT"?" Station":g.category==="Bus"?" Stop":"";
-              return <a key={`${g.category}-${i}`} href={transitSearchUrl(s.name, g.category)} target="_blank" rel="noopener"
+              return <a key={`${g.category}-${i}`} href={transitDirectionsUrl(s.name, g.category, place)} target="_blank" rel="noopener"
                 style={{display:"flex",alignItems:"center",gap:10,padding:"10px 12px",borderRadius:10,background:C.surface,textDecoration:"none"}}>
                 <div style={{width:32,height:32,borderRadius:8,background:st.bg,display:"flex",alignItems:"center",justifyContent:"center",flexShrink:0}}>
                   <TransitIcon category={g.category} size={18}/>
                 </div>
                 <div style={{flex:1,minWidth:0}}>
                   <div style={{fontSize:14,fontWeight:500,color:C.text}}>{s.name}{suffix}</div>
-                  <div style={{fontSize:12,color:C.textLight}}>{g.category}</div>
+                  <div style={{fontSize:12,color:C.textLight}}>{g.category} · {s.distance}</div>
                 </div>
-                <span style={{fontSize:13,color:C.textLight,flexShrink:0}}>{s.distance}</span>
-                <Icon name="chevron" size={14} color={C.border}/>
+                <Icon name="external" size={14} color={C.textLight}/>
               </a>;
             }))}
           </div>

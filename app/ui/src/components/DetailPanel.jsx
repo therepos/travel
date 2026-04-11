@@ -22,9 +22,10 @@ function TransitIcon({category, size=16}) {
   return <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={s.color} strokeWidth={2} style={{flexShrink:0}}>{s.icon}</svg>;
 }
 
-function transitSearchUrl(name, category) {
-  const q = `${name} ${category==="MRT"?"MRT Station":category==="Bus"?"Bus Stop":category==="Train"?"Train Station":"Station"}`;
-  return `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(q)}`;
+function transitDirectionsUrl(stationName, category, place) {
+  const origin = `${stationName} ${category==="MRT"?"MRT Station":category==="Bus"?"Bus Stop":category==="Train"?"Train Station":"Station"}`;
+  const dest = place.address || place.name;
+  return `https://www.google.com/maps/dir/?api=1&origin=${encodeURIComponent(origin)}&destination=${encodeURIComponent(dest)}&travelmode=walking`;
 }
 
 export default function DetailPanel({place, onClose, onDelete, onEdit, onRefresh, onShare}) {
@@ -140,26 +141,25 @@ export default function DetailPanel({place, onClose, onDelete, onEdit, onRefresh
         </div>
       </div>
 
-      {/* Getting there — clean Google-style */}
+      {/* Getting there — two-column grid, clickable with route directions */}
       {transport && (transport.groups||[]).length>0 && <div style={{marginTop:12,paddingTop:12,borderTop:`1px solid ${C.borderLight}`}}>
         <div style={{fontSize:11,color:C.textLight,fontWeight:500,textTransform:"uppercase",letterSpacing:".4px",marginBottom:8}}>Getting there</div>
-        <div style={{display:"flex",flexDirection:"column",gap:6}}>
+        <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:6}}>
           {(transport.groups||[]).flatMap(g=>g.stations.map((s,i)=>{
             const st=TRANSIT_STYLES[g.category]||TRANSIT_STYLES.Transit;
             const suffix = g.category==="MRT"?" Station":g.category==="Bus"?" Stop":"";
-            return <a key={`${g.category}-${i}`} href={transitSearchUrl(s.name, g.category)} target="_blank" rel="noopener"
-              style={{display:"flex",alignItems:"center",gap:10,padding:"8px 12px",borderRadius:8,background:C.surface,textDecoration:"none",cursor:"pointer",transition:"background .15s"}}
+            return <a key={`${g.category}-${i}`} href={transitDirectionsUrl(s.name, g.category, place)} target="_blank" rel="noopener"
+              style={{display:"flex",alignItems:"center",gap:8,padding:"8px 10px",borderRadius:8,background:C.surface,textDecoration:"none",cursor:"pointer",transition:"background .15s"}}
               onMouseEnter={e=>{e.currentTarget.style.background=C.borderLight;}}
               onMouseLeave={e=>{e.currentTarget.style.background=C.surface;}}>
-              <div style={{width:28,height:28,borderRadius:6,background:st.bg,display:"flex",alignItems:"center",justifyContent:"center",flexShrink:0}}>
-                <TransitIcon category={g.category} size={16}/>
+              <div style={{width:26,height:26,borderRadius:6,background:st.bg,display:"flex",alignItems:"center",justifyContent:"center",flexShrink:0}}>
+                <TransitIcon category={g.category} size={14}/>
               </div>
               <div style={{flex:1,minWidth:0}}>
-                <div style={{fontSize:13,fontWeight:500,color:C.text}}>{s.name}{suffix}</div>
-                <div style={{fontSize:11,color:C.textLight}}>{g.category}</div>
+                <div style={{fontSize:12,fontWeight:500,color:C.text,whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis"}}>{s.name}{suffix}</div>
+                <div style={{fontSize:11,color:C.textLight}}>{g.category} · {s.distance}</div>
               </div>
-              <span style={{fontSize:12,color:C.textLight,flexShrink:0}}>{s.distance}</span>
-              <Icon name="chevron" size={14} color={C.border}/>
+              <Icon name="external" size={12} color={C.textLight}/>
             </a>;
           }))}
         </div>

@@ -301,7 +301,7 @@ export default function App() {
         <Icon name="pin" size={24} color={C.blue} fill="none"/> Travel
       </div>
 
-      <div ref={searchRef} style={{flex:1,maxWidth:560,position:"relative"}}>
+      <div ref={searchRef} style={{flex:1,position:"relative"}}>
         <div style={{height:46,background:searchOpen?"#fff":C.borderLight,borderRadius:searchOpen?"8px 8px 0 0":"8px",display:"flex",alignItems:"center",gap:10,padding:"0 14px",
           border:searchOpen?`1.5px solid ${C.blue}`:"1.5px solid transparent",transition:"all .15s"}}
           onClick={()=>!searchOpen&&setSearchOpen(true)}>
@@ -319,30 +319,31 @@ export default function App() {
           onClose={()=>{setSearchOpen(false);setSearchQuery("");}}/>}
       </div>
 
-      {/* Places / Routes tabs — right side */}
-      <div style={{display:"flex",gap:2,background:C.borderLight,borderRadius:8,padding:2,flexShrink:0}}>
-        <button onClick={()=>{switchView("places");clearFilters();}}
-          style={{padding:"7px 16px",borderRadius:6,fontSize:13,fontWeight:500,border:"none",cursor:"pointer",fontFamily:"inherit",transition:"all .15s",
-            background:view==="places"||view==="settings"?"#fff":"transparent",color:view==="places"?C.blue:C.textMid,
-            boxShadow:view==="places"?"0 1px 3px rgba(0,0,0,.08)":"none",
-            display:"flex",alignItems:"center",gap:5}}>
-          <Icon name="layers" size={15} sw={1.5} color={view==="places"?C.blue:C.textMid}/> Places
-          <span style={{fontSize:11,color:C.textLight,background:view==="places"?C.blueBg:C.surface,padding:"1px 6px",borderRadius:6}}>{places.length}</span>
+      {/* Right group — tabs + settings + avatar, pushed to far right */}
+      <div style={{display:"flex",alignItems:"center",gap:8,flexShrink:0,marginLeft:"auto"}}>
+        <div style={{display:"flex",gap:2,background:C.borderLight,borderRadius:8,padding:2}}>
+          <button onClick={()=>{switchView("places");clearFilters();}}
+            style={{padding:"7px 16px",borderRadius:6,fontSize:13,fontWeight:500,border:"none",cursor:"pointer",fontFamily:"inherit",transition:"all .15s",
+              background:view==="places"||view==="settings"?"#fff":"transparent",color:view==="places"?C.blue:C.textMid,
+              boxShadow:view==="places"?"0 1px 3px rgba(0,0,0,.08)":"none",
+              display:"flex",alignItems:"center",gap:5}}>
+            <Icon name="layers" size={15} sw={1.5} color={view==="places"?C.blue:C.textMid}/> Places
+            <span style={{fontSize:11,color:C.textLight,background:view==="places"?C.blueBg:C.surface,padding:"1px 6px",borderRadius:6}}>{places.length}</span>
+          </button>
+          <button onClick={()=>switchView("routes")}
+            style={{padding:"7px 16px",borderRadius:6,fontSize:13,fontWeight:500,border:"none",cursor:"pointer",fontFamily:"inherit",transition:"all .15s",
+              background:view==="routes"?"#fff":"transparent",color:view==="routes"?C.blue:C.textMid,
+              boxShadow:view==="routes"?"0 1px 3px rgba(0,0,0,.08)":"none",
+              display:"flex",alignItems:"center",gap:5}}>
+            <Icon name="route" size={15} sw={1.5} color={view==="routes"?C.blue:C.textMid}/> Routes
+            <span style={{fontSize:11,color:C.textLight,background:view==="routes"?C.blueBg:C.surface,padding:"1px 6px",borderRadius:6}}>{routes.length}</span>
+          </button>
+        </div>
+        <button onClick={()=>switchView("settings")} style={{background:"none",border:"none",padding:4,color:view==="settings"?C.blue:C.textMid}}>
+          <Icon name="gear" size={22}/>
         </button>
-        <button onClick={()=>switchView("routes")}
-          style={{padding:"7px 16px",borderRadius:6,fontSize:13,fontWeight:500,border:"none",cursor:"pointer",fontFamily:"inherit",transition:"all .15s",
-            background:view==="routes"?"#fff":"transparent",color:view==="routes"?C.blue:C.textMid,
-            boxShadow:view==="routes"?"0 1px 3px rgba(0,0,0,.08)":"none",
-            display:"flex",alignItems:"center",gap:5}}>
-          <Icon name="route" size={15} sw={1.5} color={view==="routes"?C.blue:C.textMid}/> Routes
-          <span style={{fontSize:11,color:C.textLight,background:view==="routes"?C.blueBg:C.surface,padding:"1px 6px",borderRadius:6}}>{routes.length}</span>
-        </button>
+        <div style={{width:34,height:34,borderRadius:"50%",background:C.blue,color:"#fff",display:"flex",alignItems:"center",justifyContent:"center",fontSize:14,fontWeight:500}}>R</div>
       </div>
-
-      <button onClick={()=>switchView("settings")} style={{background:"none",border:"none",padding:4,color:view==="settings"?C.blue:C.textMid}}>
-        <Icon name="gear" size={22}/>
-      </button>
-      <div style={{width:34,height:34,borderRadius:"50%",background:C.blue,color:"#fff",display:"flex",alignItems:"center",justifyContent:"center",fontSize:14,fontWeight:500}}>R</div>
     </div>
 
     <div style={{display:"flex",flex:1,overflow:"hidden"}}>
