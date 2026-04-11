@@ -362,7 +362,7 @@ export default function App() {
           onNew={()=>openRoutePlanner([])} isMobile={true} selectedId={null}
           bulkMode={bulkMode} bulkSelected={bulkSelected}/>
       </div>
-      : <SettingsPage isMobile={true} user={user} onLogout={handleLogout}/>}
+      : <SettingsPage isMobile={true} user={user} onLogout={handleLogout} onUserUpdate={u=>setUser(u)}/>}
 
       {/* FAB — consistent across places and routes */}
       {view==="places" && !bulkMode && <button onClick={()=>setSearchOpen(true)} style={{position:"absolute",bottom:72,right:14,width:56,height:56,borderRadius:16,background:C.blue,color:"#fff",border:"none",display:"flex",alignItems:"center",justifyContent:"center",zIndex:4,boxShadow:"0 2px 8px rgba(26,115,232,0.35)",cursor:"pointer"}}>
@@ -492,7 +492,7 @@ export default function App() {
       </div>
 
       {/* Right panel */}
-      {view === "settings" ? <SettingsPage isMobile={false} user={user} onLogout={handleLogout}/>
+      {view === "settings" ? <SettingsPage isMobile={false} user={user} onLogout={handleLogout} onUserUpdate={u=>setUser(u)}/>
       : routePlanner ? <RoutePlanner allPlaces={places} initialStops={routePlanner.initialStops}
           editingRoute={routePlanner.editingRoute} onClose={()=>setRoutePlanner(null)} onSaved={handleRouteSaved} isMobile={false}/>
       : view === "places" && selected ? <DetailPanel place={selected}

@@ -68,6 +68,12 @@ def init_db():
         cols = {row[1] for row in conn.execute(f"PRAGMA table_info({table})").fetchall()}
         if "user_id" not in cols:
             conn.execute(f"ALTER TABLE {table} ADD COLUMN user_id INTEGER DEFAULT 0")
+    # Migrate: add email/notify to users if missing
+    ucols = {row[1] for row in conn.execute("PRAGMA table_info(users)").fetchall()}
+    if "email" not in ucols:
+        conn.execute("ALTER TABLE users ADD COLUMN email TEXT DEFAULT ''")
+    if "notify_digest" not in ucols:
+        conn.execute("ALTER TABLE users ADD COLUMN notify_digest INTEGER DEFAULT 0")
     cursor = conn.execute("PRAGMA table_info(places)")
     existing = {row[1] for row in cursor.fetchall()}
     for col, typedef in [("city","TEXT DEFAULT ''"),("district","TEXT DEFAULT ''"),
@@ -183,6 +189,13 @@ class UserLogin(BaseModel):
 
 class UserUpdate(BaseModel):
     display_name:Optional[str]=None; color:Optional[str]=None
+    email:Optional[str]=None; notify_digest:Optional[bool]=None
+
+class PasswordChange(BaseModel):
+    current_password:str; new_password:str
+
+class UsernameChange(BaseModel):
+    new_username:str; password:str
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
@@ -225,7 +238,7 @@ def register(body: UserRegister, response: Response):
     conn.execute("INSERT INTO sessions (token,user_id,created) VALUES (?,?,?)", (token, user["id"], date.today().isoformat()))
     conn.commit(); conn.close()
     response.set_cookie("session", token, httponly=True, samesite="lax", max_age=86400*90)
-    return {"user": {"id":user["id"],"username":user["username"],"display_name":user["display_name"],"color":user["color"]}}
+    return {"user": {"id":user["id"],"username":user["username"],"display_name":user["display_name"],"color":user["color"],"email":"","notify_digest":False}}
 
 @app.post("/api/auth/login")
 def login(body: UserLogin, response: Response):
@@ -237,7 +250,8 @@ def login(body: UserLogin, response: Response):
     conn.execute("INSERT INTO sessions (token,user_id,created) VALUES (?,?,?)", (token, user["id"], date.today().isoformat()))
     conn.commit(); conn.close()
     response.set_cookie("session", token, httponly=True, samesite="lax", max_age=86400*90)
-    return {"user": {"id":user["id"],"username":user["username"],"display_name":user["display_name"],"color":user["color"]}}
+    return {"user": {"id":user["id"],"username":user["username"],"display_name":user["display_name"],"color":user["color"],
+            "email":user["email"] or "","notify_digest":bool(user["notify_digest"])}}
 
 @app.post("/api/auth/logout")
 def logout(request: Request, response: Response):
@@ -251,7 +265,8 @@ def logout(request: Request, response: Response):
 def me(request: Request):
     user = get_user(request)
     if not user: return {"user": None}
-    return {"user": {"id":user["id"],"username":user["username"],"display_name":user["display_name"],"color":user["color"]}}
+    return {"user": {"id":user["id"],"username":user["username"],"display_name":user["display_name"],
+            "color":user["color"],"email":user.get("email",""),"notify_digest":bool(user.get("notify_digest",0))}}
 
 @app.patch("/api/auth/me")
 def update_me(updates: UserUpdate, request: Request):
@@ -259,11 +274,54 @@ def update_me(updates: UserUpdate, request: Request):
     conn = get_db(); fields = []; values = []
     if updates.display_name is not None: fields.append("display_name=?"); values.append(updates.display_name)
     if updates.color is not None: fields.append("color=?"); values.append(updates.color)
+    if updates.email is not None: fields.append("email=?"); values.append(updates.email)
+    if updates.notify_digest is not None: fields.append("notify_digest=?"); values.append(1 if updates.notify_digest else 0)
     if fields:
         values.append(user["id"])
         conn.execute(f"UPDATE users SET {','.join(fields)} WHERE id=?", values); conn.commit()
     row = conn.execute("SELECT * FROM users WHERE id=?", (user["id"],)).fetchone(); conn.close()
-    return {"user": {"id":row["id"],"username":row["username"],"display_name":row["display_name"],"color":row["color"]}}
+    return {"user": {"id":row["id"],"username":row["username"],"display_name":row["display_name"],
+            "color":row["color"],"email":row["email"] or "","notify_digest":bool(row["notify_digest"])}}
+
+@app.post("/api/auth/password")
+def change_password(body: PasswordChange, request: Request):
+    user = require_user(request)
+    if not _check_pw(body.current_password, user["password"]):
+        raise HTTPException(400, "Current password is incorrect")
+    if len(body.new_password) < 4:
+        raise HTTPException(400, "Password must be at least 4 characters")
+    conn = get_db()
+    conn.execute("UPDATE users SET password=? WHERE id=?", (_hash_pw(body.new_password), user["id"]))
+    conn.commit(); conn.close()
+    return {"ok": True}
+
+@app.post("/api/auth/username")
+def change_username(body: UsernameChange, request: Request):
+    user = require_user(request)
+    if not _check_pw(body.password, user["password"]):
+        raise HTTPException(400, "Password is incorrect")
+    new_un = body.new_username.lower().strip()
+    if not new_un or len(new_un) < 2:
+        raise HTTPException(400, "Username must be at least 2 characters")
+    conn = get_db()
+    if conn.execute("SELECT id FROM users WHERE username=? AND id!=?", (new_un, user["id"])).fetchone():
+        conn.close(); raise HTTPException(409, "Username taken")
+    conn.execute("UPDATE users SET username=? WHERE id=?", (new_un, user["id"]))
+    conn.commit(); conn.close()
+    return {"user": {"id":user["id"],"username":new_un,"display_name":user["display_name"],"color":user["color"],
+            "email":user.get("email",""),"notify_digest":bool(user.get("notify_digest",0))}}
+
+@app.delete("/api/auth/account")
+def delete_account(request: Request, response: Response):
+    user = require_user(request)
+    conn = get_db()
+    conn.execute("DELETE FROM places WHERE user_id=?", (user["id"],))
+    conn.execute("DELETE FROM routes WHERE user_id=?", (user["id"],))
+    conn.execute("DELETE FROM sessions WHERE user_id=?", (user["id"],))
+    conn.execute("DELETE FROM users WHERE id=?", (user["id"],))
+    conn.commit(); conn.close()
+    response.delete_cookie("session")
+    return {"ok": True}
 
 # ── Region mapping ────────────────────────────────────────
 REGION_MAP = {

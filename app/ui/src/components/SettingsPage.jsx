@@ -1,37 +1,48 @@
 import { useState, useEffect } from "react";
 import { api, C, Icon } from "../shared.jsx";
 
-export default function SettingsPage({isMobile, user, onLogout}) {
+export default function SettingsPage({isMobile, user, onLogout, onUserUpdate}) {
   const [stats,setStats] = useState(null);
   const [importing,setImporting] = useState(false);
   const [importResult,setImportResult] = useState(null);
 
-  useEffect(() => {
-    api("/stats").then(setStats).catch(()=>{});
-  }, []);
+  const [editingField,setEditingField] = useState(null);
+  const [fieldValue,setFieldValue] = useState("");
+  const [fieldError,setFieldError] = useState("");
+  const [fieldSaving,setFieldSaving] = useState(false);
 
-  const handleExport = async (format) => {
-    window.open(`/api/export/${format}`, "_blank");
-  };
+  const [pwOpen,setPwOpen] = useState(false);
+  const [pwCurrent,setPwCurrent] = useState("");
+  const [pwNew,setPwNew] = useState("");
+  const [pwConfirm,setPwConfirm] = useState("");
+  const [pwError,setPwError] = useState("");
+  const [pwSaving,setPwSaving] = useState(false);
+  const [pwSuccess,setPwSuccess] = useState(false);
 
-  const handleImport = async (format) => {
+  const [unOpen,setUnOpen] = useState(false);
+  const [unValue,setUnValue] = useState("");
+  const [unPw,setUnPw] = useState("");
+  const [unError,setUnError] = useState("");
+  const [unSaving,setUnSaving] = useState(false);
+
+  useEffect(() => { api("/stats").then(setStats).catch(()=>{}); }, []);
+
+  const handleExport = (format) => { window.open(`/api/export/${format}`, "_blank"); };
+
+  const handleImport = (format) => {
     const input = document.createElement("input");
     input.type = "file";
     input.accept = format === "json" ? ".json" : format === "csv" ? ".csv" : format === "kml" ? ".kml" : ".geojson,.json";
     input.onchange = async (e) => {
-      const file = e.target.files[0];
-      if (!file) return;
+      const file = e.target.files[0]; if (!file) return;
       setImporting(true); setImportResult(null);
-      const formData = new FormData();
-      formData.append("file", file);
+      const formData = new FormData(); formData.append("file", file);
       try {
         const res = await fetch(`/api/import/${format}`, {method:"POST", body:formData});
         const data = await res.json();
         setImportResult({ok:true, count:data.imported||0});
         setTimeout(() => window.location.reload(), 1500);
-      } catch(e) {
-        setImportResult({ok:false, error:e.message});
-      }
+      } catch(e) { setImportResult({ok:false, error:e.message}); }
       setImporting(false);
     };
     input.click();
@@ -40,9 +51,67 @@ export default function SettingsPage({isMobile, user, onLogout}) {
   const handleDeleteAll = async () => {
     if (!confirm("Delete ALL places and routes? This cannot be undone.")) return;
     if (!confirm("Are you really sure? Everything will be permanently deleted.")) return;
+    try { await api("/data/all", {method:"DELETE"}); window.location.reload(); } catch(e) { console.error(e); }
+  };
+
+  const handleDeleteAccount = async () => {
+    if (!confirm("Delete your account? All your places, routes, and data will be permanently removed.")) return;
+    if (!confirm("This is irreversible. Are you absolutely sure?")) return;
     try {
-      await api("/data/all", {method:"DELETE"});
+      await fetch("/api/auth/account", {method:"DELETE"});
       window.location.reload();
+    } catch(e) { console.error(e); }
+  };
+
+  const startEdit = (field, value) => { setEditingField(field); setFieldValue(value||""); setFieldError(""); };
+  const cancelEdit = () => { setEditingField(null); setFieldValue(""); setFieldError(""); };
+  const saveField = async () => {
+    setFieldSaving(true); setFieldError("");
+    try {
+      const res = await fetch("/api/auth/me", {method:"PATCH", headers:{"Content-Type":"application/json"},
+        body:JSON.stringify({[editingField]:fieldValue})});
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.detail||"Failed");
+      onUserUpdate?.(data.user);
+      setEditingField(null);
+    } catch(e) { setFieldError(e.message); }
+    setFieldSaving(false);
+  };
+
+  const savePassword = async () => {
+    if (pwNew !== pwConfirm) { setPwError("Passwords don't match"); return; }
+    if (pwNew.length < 4) { setPwError("Must be at least 4 characters"); return; }
+    setPwSaving(true); setPwError("");
+    try {
+      const res = await fetch("/api/auth/password", {method:"POST", headers:{"Content-Type":"application/json"},
+        body:JSON.stringify({current_password:pwCurrent, new_password:pwNew})});
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.detail||"Failed");
+      setPwSuccess(true); setTimeout(()=>{setPwOpen(false);setPwSuccess(false);setPwCurrent("");setPwNew("");setPwConfirm("");},1500);
+    } catch(e) { setPwError(e.message); }
+    setPwSaving(false);
+  };
+
+  const saveUsername = async () => {
+    if (unValue.length < 2) { setUnError("Must be at least 2 characters"); return; }
+    setUnSaving(true); setUnError("");
+    try {
+      const res = await fetch("/api/auth/username", {method:"POST", headers:{"Content-Type":"application/json"},
+        body:JSON.stringify({new_username:unValue, password:unPw})});
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.detail||"Failed");
+      onUserUpdate?.(data.user);
+      setUnOpen(false); setUnValue(""); setUnPw("");
+    } catch(e) { setUnError(e.message); }
+    setUnSaving(false);
+  };
+
+  const toggleDigest = async () => {
+    try {
+      const res = await fetch("/api/auth/me", {method:"PATCH", headers:{"Content-Type":"application/json"},
+        body:JSON.stringify({notify_digest:!user.notify_digest})});
+      const data = await res.json();
+      if (res.ok) onUserUpdate?.(data.user);
     } catch(e) { console.error(e); }
   };
 
@@ -57,15 +126,21 @@ export default function SettingsPage({isMobile, user, onLogout}) {
     btn:{padding:m?"7px 16px":"5px 14px",borderRadius:10,fontSize:m?13:11,fontWeight:500,border:`1px solid ${C.border}`,background:"#fff",color:C.textMid,cursor:"pointer",fontFamily:"inherit",flexShrink:0},
     formatRow:{display:"flex",gap:6,marginTop:6},
     fmt:{fontSize:m?13:12,padding:m?"5px 14px":"3px 10px",borderRadius:8,border:`1px solid ${C.border}`,color:C.textMid,background:"#fff",cursor:"pointer",fontWeight:500,fontFamily:"inherit"},
+    input:{padding:m?"10px 12px":"8px 10px",borderRadius:8,border:`1.5px solid ${C.border}`,fontSize:m?15:13,fontFamily:"inherit",outline:"none",width:"100%",boxSizing:"border-box",background:"#fff",color:C.text},
+    saveBtn:{padding:m?"8px 18px":"6px 14px",borderRadius:10,fontSize:m?14:12,fontWeight:500,border:"none",background:C.blue,color:"#fff",cursor:"pointer",fontFamily:"inherit"},
+    cancelBtn:{padding:m?"8px 18px":"6px 14px",borderRadius:10,fontSize:m?14:12,fontWeight:500,border:`1px solid ${C.border}`,background:"#fff",color:C.textMid,cursor:"pointer",fontFamily:"inherit"},
+    error:{padding:"6px 10px",borderRadius:8,background:"#fce8e6",color:"#c5221f",fontSize:m?13:11,marginTop:6},
+    success:{padding:"6px 10px",borderRadius:8,background:"#e6f4ea",color:"#137333",fontSize:m?13:11,marginTop:6},
   };
 
   return <div style={{flex:1,overflowY:"auto",padding:m?"16px 20px":"20px 28px",maxWidth:640,
     ...(m?{}:{borderLeft:`1px solid ${C.border}`,minWidth:0})}}>
     <div style={{fontSize:m?22:18,fontWeight:500,marginBottom:m?20:16}}>Settings</div>
 
-    {/* Account */}
+    {/* ── ACCOUNT ── */}
     {user && <div style={S.section}>
       <div style={S.sectionTitle}>Account</div>
+
       <div style={{display:"flex",alignItems:"center",gap:m?14:12,padding:m?"14px 0":"10px 0",borderBottom:`1px solid ${C.borderLight}`}}>
         <div style={{width:m?48:42,height:m?48:42,borderRadius:"50%",background:user.color||C.blue,color:"#fff",display:"flex",alignItems:"center",justifyContent:"center",fontSize:m?20:18,fontWeight:500,flexShrink:0}}>
           {(user.display_name||user.username||"?")[0].toUpperCase()}
@@ -74,9 +149,122 @@ export default function SettingsPage({isMobile, user, onLogout}) {
           <div style={{fontSize:m?16:14,fontWeight:500}}>{user.display_name||user.username}</div>
           <div style={{fontSize:m?14:12,color:C.textMid}}>@{user.username}</div>
         </div>
-        <button onClick={onLogout}
-          style={{padding:m?"8px 16px":"6px 14px",borderRadius:10,fontSize:m?14:12,fontWeight:500,border:`1px solid ${C.border}`,background:"#fff",color:C.textMid,cursor:"pointer",fontFamily:"inherit"}}>
-          Sign out
+        <button onClick={onLogout} style={S.btn}>Sign out</button>
+      </div>
+
+      {/* Display name */}
+      <div style={S.row}>
+        <div style={{...S.icon,background:C.blueBg}}><Icon name="edit" size={m?16:14} color={C.blue}/></div>
+        <div style={{flex:1}}>
+          <div style={S.label}>Display name</div>
+          <div style={S.desc}>How your name appears in the app</div>
+          {editingField==="display_name" && <div style={{marginTop:8}}>
+            <input value={fieldValue} onChange={e=>setFieldValue(e.target.value)} autoFocus style={S.input}
+              onFocus={e=>{e.target.style.borderColor=C.blue;}} onBlur={e=>{e.target.style.borderColor=C.border;}}
+              onKeyDown={e=>{if(e.key==="Enter")saveField();if(e.key==="Escape")cancelEdit();}}/>
+            {fieldError && <div style={S.error}>{fieldError}</div>}
+            <div style={{display:"flex",gap:6,marginTop:8,justifyContent:"flex-end"}}>
+              <button onClick={cancelEdit} style={S.cancelBtn}>Cancel</button>
+              <button onClick={saveField} disabled={fieldSaving} style={S.saveBtn}>{fieldSaving?"Saving...":"Save"}</button>
+            </div>
+          </div>}
+        </div>
+        {editingField!=="display_name" && <button onClick={()=>startEdit("display_name",user.display_name)}
+          style={{...S.btn,color:C.blue,borderColor:C.blueBg}}>{user.display_name||"Set"}</button>}
+      </div>
+
+      {/* Username */}
+      <div style={{...S.row,borderBottom:unOpen?"none":`1px solid ${C.borderLight}`}}>
+        <div style={{...S.icon,background:C.blueBg}}><Icon name="lock" size={m?16:14} color={C.blue}/></div>
+        <div style={{flex:1}}>
+          <div style={S.label}>Username</div>
+          <div style={S.desc}>Used for login. Changing it updates your credentials.</div>
+        </div>
+        {!unOpen && <button onClick={()=>{setUnOpen(true);setUnValue(user.username);setUnPw("");setUnError("");}}
+          style={{...S.btn,color:C.blue,borderColor:C.blueBg}}>@{user.username}</button>}
+      </div>
+      {unOpen && <div style={{padding:"0 0 12px",borderBottom:`1px solid ${C.borderLight}`}}>
+        <div style={{display:"flex",gap:8,marginBottom:8}}>
+          <input value={unValue} onChange={e=>setUnValue(e.target.value)} placeholder="New username" autoFocus
+            style={{...S.input,flex:1}} onFocus={e=>{e.target.style.borderColor=C.blue;}} onBlur={e=>{e.target.style.borderColor=C.border;}}/>
+          <input value={unPw} onChange={e=>setUnPw(e.target.value)} placeholder="Your password" type="password"
+            style={{...S.input,flex:1}} onFocus={e=>{e.target.style.borderColor=C.blue;}} onBlur={e=>{e.target.style.borderColor=C.border;}}/>
+        </div>
+        {unError && <div style={S.error}>{unError}</div>}
+        <div style={{display:"flex",gap:6,justifyContent:"flex-end",marginTop:8}}>
+          <button onClick={()=>setUnOpen(false)} style={S.cancelBtn}>Cancel</button>
+          <button onClick={saveUsername} disabled={unSaving} style={S.saveBtn}>{unSaving?"Saving...":"Update"}</button>
+        </div>
+      </div>}
+    </div>}
+
+    {/* ── SECURITY ── */}
+    {user && <div style={S.section}>
+      <div style={S.sectionTitle}>Security</div>
+      <div style={{...S.row,borderBottom:pwOpen?"none":`1px solid ${C.borderLight}`}}>
+        <div style={{...S.icon,background:"#fef7e0"}}><Icon name="lock" size={m?16:14} color="#b06000"/></div>
+        <div style={{flex:1}}>
+          <div style={S.label}>Password</div>
+          <div style={S.desc}>Change your login password</div>
+        </div>
+        {!pwOpen && <button onClick={()=>{setPwOpen(true);setPwCurrent("");setPwNew("");setPwConfirm("");setPwError("");setPwSuccess(false);}} style={S.btn}>Change</button>}
+      </div>
+      {pwOpen && <div style={{padding:"0 0 12px",borderBottom:`1px solid ${C.borderLight}`}}>
+        <input value={pwCurrent} onChange={e=>setPwCurrent(e.target.value)} placeholder="Current password" type="password" autoFocus
+          style={{...S.input,marginBottom:8}} onFocus={e=>{e.target.style.borderColor=C.blue;}} onBlur={e=>{e.target.style.borderColor=C.border;}}/>
+        <div style={{display:"flex",gap:8,marginBottom:8}}>
+          <input value={pwNew} onChange={e=>setPwNew(e.target.value)} placeholder="New password" type="password"
+            style={{...S.input,flex:1}} onFocus={e=>{e.target.style.borderColor=C.blue;}} onBlur={e=>{e.target.style.borderColor=C.border;}}/>
+          <input value={pwConfirm} onChange={e=>setPwConfirm(e.target.value)} placeholder="Confirm new" type="password"
+            style={{...S.input,flex:1}} onFocus={e=>{e.target.style.borderColor=C.blue;}} onBlur={e=>{e.target.style.borderColor=C.border;}}
+            onKeyDown={e=>{if(e.key==="Enter")savePassword();}}/>
+        </div>
+        {pwError && <div style={S.error}>{pwError}</div>}
+        {pwSuccess && <div style={S.success}>Password updated</div>}
+        <div style={{display:"flex",gap:6,justifyContent:"flex-end",marginTop:8}}>
+          <button onClick={()=>setPwOpen(false)} style={S.cancelBtn}>Cancel</button>
+          <button onClick={savePassword} disabled={pwSaving} style={S.saveBtn}>{pwSaving?"Updating...":"Update"}</button>
+        </div>
+      </div>}
+    </div>}
+
+    {/* ── NOTIFICATIONS ── */}
+    {user && <div style={S.section}>
+      <div style={S.sectionTitle}>Notifications</div>
+
+      <div style={S.row}>
+        <div style={{...S.icon,background:C.blueBg}}><Icon name="globe" size={m?16:14} color={C.blue}/></div>
+        <div style={{flex:1}}>
+          <div style={S.label}>Email address</div>
+          <div style={S.desc}>For account recovery and notifications</div>
+          {editingField==="email" && <div style={{marginTop:8}}>
+            <input value={fieldValue} onChange={e=>setFieldValue(e.target.value)} autoFocus placeholder="your@email.com" type="email"
+              style={S.input} onFocus={e=>{e.target.style.borderColor=C.blue;}} onBlur={e=>{e.target.style.borderColor=C.border;}}
+              onKeyDown={e=>{if(e.key==="Enter")saveField();if(e.key==="Escape")cancelEdit();}}/>
+            {fieldError && <div style={S.error}>{fieldError}</div>}
+            <div style={{display:"flex",gap:6,marginTop:8,justifyContent:"flex-end"}}>
+              <button onClick={cancelEdit} style={S.cancelBtn}>Cancel</button>
+              <button onClick={saveField} disabled={fieldSaving} style={S.saveBtn}>{fieldSaving?"Saving...":"Save"}</button>
+            </div>
+          </div>}
+        </div>
+        {editingField!=="email" && <button onClick={()=>startEdit("email",user.email)}
+          style={{...S.btn,color:user.email?C.textMid:C.blue,borderColor:user.email?C.border:C.blueBg}}>
+          {user.email||"Add email"}
+        </button>}
+      </div>
+
+      <div style={{...S.row,borderBottom:"none"}}>
+        <div style={{...S.icon,background:C.blueBg}}><Icon name="clock" size={m?16:14} color={C.blue}/></div>
+        <div style={{flex:1}}>
+          <div style={S.label}>Weekly digest</div>
+          <div style={S.desc}>Summary of places you've saved</div>
+        </div>
+        <button onClick={toggleDigest}
+          style={{width:44,height:24,borderRadius:12,border:"none",cursor:"pointer",padding:2,flexShrink:0,transition:"background .2s",
+            background:user.notify_digest?C.green:C.border}}>
+          <div style={{width:20,height:20,borderRadius:"50%",background:"#fff",transition:"transform .2s",
+            transform:user.notify_digest?"translateX(20px)":"translateX(0)"}}/>
         </button>
       </div>
     </div>}
@@ -96,7 +284,6 @@ export default function SettingsPage({isMobile, user, onLogout}) {
     {/* Export */}
     <div style={S.section}>
       <div style={S.sectionTitle}>Export</div>
-
       <div style={S.row}>
         <div style={{...S.icon,background:C.blueBg}}><Icon name="download" size={m?16:14} color={C.blue}/></div>
         <div style={{flex:1}}>
@@ -109,8 +296,7 @@ export default function SettingsPage({isMobile, user, onLogout}) {
           </div>
         </div>
       </div>
-
-      <div style={S.row}>
+      <div style={{...S.row,borderBottom:"none"}}>
         <div style={{...S.icon,background:C.blueBg}}><Icon name="route" size={m?16:14} color={C.blue} fill="none"/></div>
         <div style={{flex:1}}>
           <div style={S.label}>Export routes</div>
@@ -123,7 +309,6 @@ export default function SettingsPage({isMobile, user, onLogout}) {
     {/* Import */}
     <div style={S.section}>
       <div style={S.sectionTitle}>Import</div>
-
       <div style={S.row}>
         <div style={{...S.icon,background:"#e6f4ea"}}><Icon name="upload" size={m?16:14} color={C.green}/></div>
         <div style={{flex:1}}>
@@ -136,7 +321,6 @@ export default function SettingsPage({isMobile, user, onLogout}) {
           </div>
         </div>
       </div>
-
       <div style={S.row}>
         <div style={{...S.icon,background:"#e6f4ea"}}><Icon name="pin" size={m?16:14} color={C.green} fill="none"/></div>
         <div style={{flex:1}}>
@@ -145,8 +329,7 @@ export default function SettingsPage({isMobile, user, onLogout}) {
         </div>
         <button style={S.btn} onClick={()=>handleImport("geojson")}>Choose file</button>
       </div>
-
-      <div style={S.row}>
+      <div style={{...S.row,borderBottom:"none"}}>
         <div style={{...S.icon,background:"#e6f4ea"}}><Icon name="upload" size={m?16:14} color={C.green}/></div>
         <div style={{flex:1}}>
           <div style={S.label}>Restore backup</div>
@@ -154,7 +337,6 @@ export default function SettingsPage({isMobile, user, onLogout}) {
         </div>
         <button style={S.btn} onClick={()=>handleImport("json")}>Choose file</button>
       </div>
-
       {importing && <div style={{padding:12,background:C.blueBg,borderRadius:8,fontSize:m?14:12,color:C.blue,marginTop:8}}>Importing...</div>}
       {importResult && <div style={{padding:12,borderRadius:8,fontSize:m?14:12,marginTop:8,
         background:importResult.ok?"#e6f4ea":"#fce8e6",color:importResult.ok?"#137333":"#c5221f"}}>
@@ -165,7 +347,7 @@ export default function SettingsPage({isMobile, user, onLogout}) {
     {/* API */}
     <div style={S.section}>
       <div style={S.sectionTitle}>Google Places API</div>
-      <div style={S.row}>
+      <div style={{...S.row,borderBottom:"none"}}>
         <div style={{...S.icon,background:"#fef7e0"}}><Icon name="lock" size={m?16:14} color="#b06000"/></div>
         <div style={{flex:1}}>
           <div style={S.label}>API key</div>
@@ -178,78 +360,30 @@ export default function SettingsPage({isMobile, user, onLogout}) {
       </div>
     </div>
 
-    {/* Danger */}
+    {/* ── DANGER ZONE ── */}
     <div style={S.section}>
       <div style={{...S.sectionTitle,color:C.red,borderColor:"#fce8e6"}}>Danger zone</div>
-      <div style={{...S.row,borderBottom:"none"}}>
+      <div style={S.row}>
         <div style={{...S.icon,background:"#fce8e6"}}><Icon name="trash" size={m?16:14} color={C.red}/></div>
         <div style={{flex:1}}>
           <div style={S.label}>Delete all data</div>
-          <div style={S.desc}>Permanently delete all places, routes, and tags</div>
+          <div style={S.desc}>Remove all places, routes, and tags. Keeps your account.</div>
         </div>
-        <button onClick={handleDeleteAll}
-          style={{...S.btn,color:C.red,borderColor:C.red}}>Delete all</button>
+        <button onClick={handleDeleteAll} style={{...S.btn,color:C.red,borderColor:C.red}}>Delete all</button>
+      </div>
+      <div style={{...S.row,borderBottom:"none"}}>
+        <div style={{...S.icon,background:"#fce8e6"}}><Icon name="x" size={m?16:14} color={C.red} sw={2.5}/></div>
+        <div style={{flex:1}}>
+          <div style={S.label}>Delete account</div>
+          <div style={S.desc}>Permanently delete your account and all data</div>
+        </div>
+        <button onClick={handleDeleteAccount}
+          style={{...S.btn,color:"#fff",background:C.red,borderColor:C.red}}>Delete</button>
       </div>
     </div>
 
     <div style={{fontSize:m?13:12,color:C.textLight,textAlign:"center",padding:"16px 0"}}>
-      Travel v4.0 · Self-hosted · MIT License
-    </div>
-
-    {/* About & Category Reference */}
-    <div style={S.section}>
-      <div style={S.sectionTitle}>About & Categories</div>
-      <div style={{fontSize:m?14:13,color:C.textMid,lineHeight:1.6,marginBottom:12}}>
-        Travel auto-classifies places into categories based on Google Places types. Categories with 0 places are hidden from the sidebar.
-      </div>
-
-      <div style={{marginBottom:12}}>
-        <div style={{fontSize:m?13:12,fontWeight:500,color:C.text,marginBottom:6}}>Intent Categories</div>
-        <div style={{display:"grid",gridTemplateColumns:m?"1fr":"1fr 1fr",gap:6}}>
-          {[
-            {icon:"eat",label:"Eat",desc:"Restaurants, cafes, bakeries, food courts, meal delivery"},
-            {icon:"drink",label:"Drink",desc:"Bars, pubs, night clubs, liquor stores"},
-            {icon:"see",label:"See",desc:"Museums, galleries, churches, mosques, temples, attractions"},
-            {icon:"do",label:"Do",desc:"Parks, beaches, zoos, aquariums, cinemas, stadiums, gyms"},
-            {icon:"shop",label:"Shop",desc:"Malls, clothing, books, electronics, furniture stores"},
-            {icon:"goout",label:"Go out",desc:"Social venues, night clubs, entertainment"},
-            {icon:"stay",label:"Stay",desc:"Hotels, lodging, hostels, RV parks"},
-            {icon:"services",label:"Services",desc:"Spas, salons, laundry, doctors, pharmacies, banks, ATMs"},
-          ].map(c=><div key={c.label} style={{display:"flex",gap:8,alignItems:"flex-start",padding:m?"8px 10px":"6px 8px",background:C.surface,borderRadius:8}}>
-            <Icon name={c.icon} size={m?18:16} color={C.blue} sw={1.5}/>
-            <div><div style={{fontSize:m?13:12,fontWeight:500}}>{c.label}</div>
-            <div style={{fontSize:m?12:11,color:C.textLight,lineHeight:1.4}}>{c.desc}</div></div>
-          </div>)}
-        </div>
-      </div>
-
-      <div style={{marginBottom:12}}>
-        <div style={{fontSize:m?13:12,fontWeight:500,color:C.text,marginBottom:6}}>Cuisine Sub-types (Eat only)</div>
-        <div style={{display:"flex",gap:4,flexWrap:"wrap"}}>
-          {["Japanese","Chinese","Korean","Thai","Vietnamese","Indian","Mexican","Italian","French","Greek","Spanish","Turkish","Lebanese","American","German","Indonesian","Malaysian","Filipino","Mediterranean","Middle Eastern","Seafood","BBQ","Steakhouse","Vegan","Vegetarian"].map(c=>
-            <span key={c} style={{fontSize:m?12:11,padding:"3px 8px",borderRadius:6,background:"#fef7e0",color:"#b06000"}}>{c}</span>
-          )}
-        </div>
-      </div>
-
-      <div>
-        <div style={{fontSize:m?13:12,fontWeight:500,color:C.text,marginBottom:6}}>Sub-types (Non-eat)</div>
-        <div style={{display:"flex",gap:4,flexWrap:"wrap"}}>
-          {["Cafe","Bakery","Bar","Club","Museum","Gallery","Church","Mosque","Temple","Attraction","Park","Nature","Beach","Zoo","Aquarium","Theme park","Cinema","Stadium","Gym","Mall","Fashion","Books","Hotel","Spa","Beauty salon","Dentist","Doctor","Pharmacy"].map(c=>
-            <span key={c} style={{fontSize:m?12:11,padding:"3px 8px",borderRadius:6,background:"#e6f4ea",color:"#137333"}}>{c}</span>
-          )}
-        </div>
-      </div>
-
-      <div style={{marginTop:12}}>
-        <div style={{fontSize:m?13:12,fontWeight:500,color:C.text,marginBottom:6}}>Tag Colors</div>
-        <div style={{display:"flex",gap:8,flexWrap:"wrap",fontSize:m?13:12}}>
-          <span style={{padding:"3px 10px",borderRadius:6,background:"#e6f4ea",color:"#137333"}}>● Auto tags (green)</span>
-          <span style={{padding:"3px 10px",borderRadius:6,background:"#fef7e0",color:"#b06000"}}>● Cuisine (amber)</span>
-          <span style={{padding:"3px 10px",borderRadius:6,background:C.purpleBg,color:C.purple}}>● User tags (purple)</span>
-          <span style={{padding:"3px 10px",borderRadius:6,background:C.blueBg,color:"#1967d2"}}>● Info (blue)</span>
-        </div>
-      </div>
+      Travel v5.0 · Self-hosted · MIT License
     </div>
   </div>;
 }
