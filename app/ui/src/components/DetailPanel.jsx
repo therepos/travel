@@ -10,7 +10,22 @@ const HIGHLIGHT_COLORS = {
   dining: {bg:C.borderLight,color:C.textMid,border:C.border},
 };
 
-const TRANSIT_ICONS = {MRT:"🚇", Bus:"🚌", Train:"🚆", Transit:"🚏"};
+const TRANSIT_STYLES = {
+  MRT:{color:"#1A73E8",bg:"#E8F0FE",icon:<path d="M4 17V6a4 4 0 014-4h8a4 4 0 014 4v11M6 17h12M8 21l-2-4M16 21l2-4M6 10h12" strokeLinecap="round" strokeLinejoin="round"/>},
+  Bus:{color:"#137333",bg:"#e6f4ea",icon:<><rect x="4" y="3" width="16" height="14" rx="2"/><path d="M4 10h16M8 17v2M16 17v2M7 13.5h.01M17 13.5h.01" strokeLinecap="round" strokeLinejoin="round"/></>},
+  Train:{color:"#92610e",bg:"#fef7e0",icon:<path d="M4 17V6a4 4 0 014-4h8a4 4 0 014 4v11M6 17h12M8 21l-2-4M16 21l2-4M6 10h12" strokeLinecap="round" strokeLinejoin="round"/>},
+  Transit:{color:"#5F6368",bg:"#f1f3f4",icon:<path d="M4 17V6a4 4 0 014-4h8a4 4 0 014 4v11M6 17h12M8 21l-2-4M16 21l2-4M6 10h12" strokeLinecap="round" strokeLinejoin="round"/>},
+};
+
+function TransitIcon({category, size=16}) {
+  const s = TRANSIT_STYLES[category]||TRANSIT_STYLES.Transit;
+  return <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={s.color} strokeWidth={2} style={{flexShrink:0}}>{s.icon}</svg>;
+}
+
+function transitSearchUrl(name, category) {
+  const q = `${name} ${category==="MRT"?"MRT Station":category==="Bus"?"Bus Stop":category==="Train"?"Train Station":"Station"}`;
+  return `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(q)}`;
+}
 
 export default function DetailPanel({place, onClose, onDelete, onEdit, onRefresh, onShare}) {
   const [refreshing,setRefreshing] = useState(false);
@@ -111,8 +126,10 @@ export default function DetailPanel({place, onClose, onDelete, onEdit, onRefresh
       <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:"0 16px",alignItems:"start"}}>
         <div>
           {place.hours && <InfoRow icon="clock"><div>{place.hours.split("|")[0]?.trim()}</div></InfoRow>}
-          {place.address && <InfoRow icon="pin">{place.address}</InfoRow>}
-          {place.phone && <InfoRow icon="phone">{place.phone}</InfoRow>}
+          {place.address && <InfoRow icon="pin"><a href={`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(place.address)}`} target="_blank" rel="noopener" style={{color:C.text,textDecoration:"none",fontSize:14,cursor:"pointer"}}
+            onMouseEnter={e=>{e.currentTarget.style.color=C.blue;}} onMouseLeave={e=>{e.currentTarget.style.color=C.text;}}>{place.address}</a></InfoRow>}
+          {place.phone && <InfoRow icon="phone"><a href={`tel:${place.phone}`} style={{color:C.text,textDecoration:"none",fontSize:14,cursor:"pointer"}}
+            onMouseEnter={e=>{e.currentTarget.style.color=C.blue;}} onMouseLeave={e=>{e.currentTarget.style.color=C.text;}}>{place.phone}</a></InfoRow>}
           {place.website && <InfoRow icon="globe"><a href={place.website} target="_blank" rel="noopener" style={{color:C.blue,textDecoration:"none",fontSize:14,wordBreak:"break-all"}}>{place.website.replace(/^https?:\/\/(www\.)?/,"").split("/")[0]}</a></InfoRow>}
         </div>
         <div>
@@ -123,19 +140,28 @@ export default function DetailPanel({place, onClose, onDelete, onEdit, onRefresh
         </div>
       </div>
 
-      {/* Getting there — grouped transport */}
+      {/* Getting there — clean Google-style */}
       {transport && (transport.groups||[]).length>0 && <div style={{marginTop:12,paddingTop:12,borderTop:`1px solid ${C.borderLight}`}}>
         <div style={{fontSize:11,color:C.textLight,fontWeight:500,textTransform:"uppercase",letterSpacing:".4px",marginBottom:8}}>Getting there</div>
-        <div style={{display:"grid",gridTemplateColumns:`repeat(${Math.min((transport.groups||[]).length,3)},1fr)`,gap:10}}>
-          {(transport.groups||[]).map(g=><div key={g.category} style={{background:C.surface,borderRadius:8,padding:"10px 12px"}}>
-            <div style={{fontSize:12,fontWeight:500,color:C.text,marginBottom:6,display:"flex",alignItems:"center",gap:4}}>
-              <span style={{fontSize:15}}>{TRANSIT_ICONS[g.category]||"🚏"}</span> {g.category}
-            </div>
-            {g.stations.map((s,i)=><div key={i} style={{fontSize:12,color:C.textMid,padding:"3px 0",display:"flex",justifyContent:"space-between"}}>
-              <span style={{fontWeight:500,color:C.text}}>{s.name}</span>
-              <span style={{color:C.textLight,fontSize:11,flexShrink:0,marginLeft:6}}>{s.distance}</span>
-            </div>)}
-          </div>)}
+        <div style={{display:"flex",flexDirection:"column",gap:6}}>
+          {(transport.groups||[]).flatMap(g=>g.stations.map((s,i)=>{
+            const st=TRANSIT_STYLES[g.category]||TRANSIT_STYLES.Transit;
+            const suffix = g.category==="MRT"?" Station":g.category==="Bus"?" Stop":"";
+            return <a key={`${g.category}-${i}`} href={transitSearchUrl(s.name, g.category)} target="_blank" rel="noopener"
+              style={{display:"flex",alignItems:"center",gap:10,padding:"8px 12px",borderRadius:8,background:C.surface,textDecoration:"none",cursor:"pointer",transition:"background .15s"}}
+              onMouseEnter={e=>{e.currentTarget.style.background=C.borderLight;}}
+              onMouseLeave={e=>{e.currentTarget.style.background=C.surface;}}>
+              <div style={{width:28,height:28,borderRadius:6,background:st.bg,display:"flex",alignItems:"center",justifyContent:"center",flexShrink:0}}>
+                <TransitIcon category={g.category} size={16}/>
+              </div>
+              <div style={{flex:1,minWidth:0}}>
+                <div style={{fontSize:13,fontWeight:500,color:C.text}}>{s.name}{suffix}</div>
+                <div style={{fontSize:11,color:C.textLight}}>{g.category}</div>
+              </div>
+              <span style={{fontSize:12,color:C.textLight,flexShrink:0}}>{s.distance}</span>
+              <Icon name="chevron" size={14} color={C.border}/>
+            </a>;
+          }))}
         </div>
       </div>}
       {loadingExtra && !highlights && <div style={{fontSize:12,color:C.textLight,marginTop:12}}>Loading details...</div>}

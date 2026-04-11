@@ -252,13 +252,7 @@ export default function App() {
         </button>
       </div>}
 
-      {/* Bulk mode bar for mobile */}
-      {(view==="places"||view==="routes") && !bulkMode && <div style={{display:"flex",justifyContent:"flex-end",padding:"4px 16px 0"}}>
-        <button onClick={()=>{setBulkMode(true);setBulkSelected(new Set());}}
-          style={{display:"flex",alignItems:"center",gap:4,padding:"5px 12px",borderRadius:16,background:"none",border:`1px solid ${C.border}`,fontSize:12,fontWeight:500,color:C.textMid,cursor:"pointer",fontFamily:"inherit"}}>
-          <Icon name="selectAll" size={14} color={C.textMid} sw={1.5}/> Select
-        </button>
-      </div>}
+      {/* Bulk mode bar for mobile — triggered by long press */}
       {bulkMode && <div style={{display:"flex",alignItems:"center",gap:8,padding:"6px 16px",background:C.blueBg,flexShrink:0}}>
         <span style={{fontSize:13,color:C.blue,fontWeight:500,flex:1}}>{bulkSelected.size} selected</span>
         <button onClick={handleBulkDelete} disabled={bulkSelected.size===0}
@@ -274,7 +268,9 @@ export default function App() {
       {/* Content */}
       {view==="places" ? <PlaceList grouped={grouped} filtered={filtered} loading={loading}
         selectedId={null} onPlaceClick={bulkMode ? (p=>toggleBulkItem(p.id)) : handlePlaceClick} isMobile={true}
-        bulkMode={bulkMode} bulkSelected={bulkSelected}/>
+        bulkMode={bulkMode} bulkSelected={bulkSelected}
+        onEdit={p=>setEditPlace(p)} onDelete={handleDelete}
+        onBulkStart={id=>{setBulkMode(true);setBulkSelected(new Set([id]));}}/>
       : view==="routes" ? <div style={{flex:1,overflowY:"auto",padding:"8px 12px"}}>
         <RouteList routes={routes} onRouteClick={bulkMode ? (r=>toggleBulkItem(r.id)) : handleRouteClick} onDelete={handleDeleteRoute}
           onNew={()=>openRoutePlanner([])} isMobile={true} selectedId={null}
@@ -305,7 +301,25 @@ export default function App() {
         <Icon name="pin" size={24} color={C.blue} fill="none"/> Travel
       </div>
 
-      {/* Places / Routes tabs */}
+      <div ref={searchRef} style={{flex:1,maxWidth:560,position:"relative"}}>
+        <div style={{height:46,background:searchOpen?"#fff":C.borderLight,borderRadius:searchOpen?"8px 8px 0 0":"8px",display:"flex",alignItems:"center",gap:10,padding:"0 14px",
+          border:searchOpen?`1.5px solid ${C.blue}`:"1.5px solid transparent",transition:"all .15s"}}
+          onClick={()=>!searchOpen&&setSearchOpen(true)}>
+          <Icon name="search" size={20} color={searchOpen?C.blue:C.textLight}/>
+          <input value={searchQuery} onChange={e=>setSearchQuery(e.target.value)}
+            onFocus={()=>setSearchOpen(true)}
+            placeholder="Search saved places or add new..."
+            style={{flex:1,border:"none",background:"none",fontSize:15,color:C.text,outline:"none"}}/>
+          {searchOpen && <button onClick={e=>{e.stopPropagation();setSearchOpen(false);setSearchQuery("");}}
+            style={{background:"none",border:"none",padding:2}}><Icon name="x" size={16} color={C.textLight}/></button>}
+        </div>
+        {searchOpen && <SearchDropdown query={searchQuery} places={places} onSave={handleSave}
+          onSelect={p=>{setSearchOpen(false);setSearchQuery("");handlePlaceClick(p);}}
+          isMobile={false} anchorRef={searchRef}
+          onClose={()=>{setSearchOpen(false);setSearchQuery("");}}/>}
+      </div>
+
+      {/* Places / Routes tabs — right side */}
       <div style={{display:"flex",gap:2,background:C.borderLight,borderRadius:8,padding:2,flexShrink:0}}>
         <button onClick={()=>{switchView("places");clearFilters();}}
           style={{padding:"7px 16px",borderRadius:6,fontSize:13,fontWeight:500,border:"none",cursor:"pointer",fontFamily:"inherit",transition:"all .15s",
@@ -325,23 +339,6 @@ export default function App() {
         </button>
       </div>
 
-      <div ref={searchRef} style={{flex:1,maxWidth:560,position:"relative"}}>
-        <div style={{height:46,background:searchOpen?"#fff":C.borderLight,borderRadius:searchOpen?"8px 8px 0 0":"8px",display:"flex",alignItems:"center",gap:10,padding:"0 14px",
-          border:searchOpen?`1.5px solid ${C.blue}`:"1.5px solid transparent",transition:"all .15s"}}
-          onClick={()=>!searchOpen&&setSearchOpen(true)}>
-          <Icon name="search" size={20} color={searchOpen?C.blue:C.textLight}/>
-          <input value={searchQuery} onChange={e=>setSearchQuery(e.target.value)}
-            onFocus={()=>setSearchOpen(true)}
-            placeholder="Search saved places or add new..."
-            style={{flex:1,border:"none",background:"none",fontSize:15,color:C.text,outline:"none"}}/>
-          {searchOpen && <button onClick={e=>{e.stopPropagation();setSearchOpen(false);setSearchQuery("");}}
-            style={{background:"none",border:"none",padding:2}}><Icon name="x" size={16} color={C.textLight}/></button>}
-        </div>
-        {searchOpen && <SearchDropdown query={searchQuery} places={places} onSave={handleSave}
-          onSelect={p=>{setSearchOpen(false);setSearchQuery("");handlePlaceClick(p);}}
-          isMobile={false} anchorRef={searchRef}
-          onClose={()=>{setSearchOpen(false);setSearchQuery("");}}/>}
-      </div>
       <button onClick={()=>switchView("settings")} style={{background:"none",border:"none",padding:4,color:view==="settings"?C.blue:C.textMid}}>
         <Icon name="gear" size={22}/>
       </button>
