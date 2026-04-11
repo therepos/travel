@@ -4,7 +4,7 @@ services:
     container_name: travel
     restart: unless-stopped
     ports:
-      - "8099:8000"
+      - "3050:8000"
     volumes:
       - travel-data:/data
     environment:
