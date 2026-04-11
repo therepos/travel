@@ -1,3 +1,5 @@
+# Travel App — context.md
+
 ## Purpose
 Travel place organiser for busy people. Save → categorise → loosely route. Not a planner.
 

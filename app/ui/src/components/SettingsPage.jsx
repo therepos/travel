@@ -28,7 +28,6 @@ export default function SettingsPage({isMobile}) {
         const res = await fetch(`/api/import/${format}`, {method:"POST", body:formData});
         const data = await res.json();
         setImportResult({ok:true, count:data.imported||0});
-        // Reload page to reflect new data
         setTimeout(() => window.location.reload(), 1500);
       } catch(e) {
         setImportResult({ok:false, error:e.message});
@@ -47,31 +46,30 @@ export default function SettingsPage({isMobile}) {
     } catch(e) { console.error(e); }
   };
 
+  const m = isMobile;
   const S = {
-    section:{marginBottom:isMobile?16:20},
-    sectionTitle:{fontSize:12,fontWeight:500,color:C.blue,textTransform:"uppercase",letterSpacing:".5px",marginBottom:8,paddingBottom:4,borderBottom:`1px solid ${C.blueBg}`},
-    row:{display:"flex",alignItems:"flex-start",gap:10,padding:"10px 0",borderBottom:`1px solid ${C.borderLight}`},
-    icon:{width:30,height:30,borderRadius:8,display:"flex",alignItems:"center",justifyContent:"center",flexShrink:0},
-    label:{fontSize:13,fontWeight:500,marginBottom:1},
-    desc:{fontSize:11,color:C.textMid,lineHeight:1.4},
-    btn:{padding:"5px 14px",borderRadius:10,fontSize:11,fontWeight:500,border:`1px solid ${C.border}`,background:"#fff",color:C.textMid,cursor:"pointer",fontFamily:"inherit",flexShrink:0},
-    btnBlue:{padding:"5px 14px",borderRadius:10,fontSize:11,fontWeight:500,border:"none",background:C.blue,color:"#fff",cursor:"pointer",fontFamily:"inherit",flexShrink:0},
-    formatRow:{display:"flex",gap:4,marginTop:4},
-    fmt:{fontSize:12,padding:"3px 10px",borderRadius:8,border:`1px solid ${C.border}`,color:C.textMid,background:"#fff",cursor:"pointer",fontWeight:500,fontFamily:"inherit"},
-    fmtActive:{background:C.blueBg,color:C.blue,borderColor:C.blueBg},
+    section:{marginBottom:m?20:20},
+    sectionTitle:{fontSize:m?13:12,fontWeight:500,color:C.blue,textTransform:"uppercase",letterSpacing:".5px",marginBottom:m?10:8,paddingBottom:4,borderBottom:`1px solid ${C.blueBg}`},
+    row:{display:"flex",alignItems:"flex-start",gap:m?12:10,padding:m?"12px 0":"10px 0",borderBottom:`1px solid ${C.borderLight}`},
+    icon:{width:m?34:30,height:m?34:30,borderRadius:m?10:8,display:"flex",alignItems:"center",justifyContent:"center",flexShrink:0},
+    label:{fontSize:m?15:13,fontWeight:500,marginBottom:2},
+    desc:{fontSize:m?13:11,color:C.textMid,lineHeight:1.5},
+    btn:{padding:m?"7px 16px":"5px 14px",borderRadius:10,fontSize:m?13:11,fontWeight:500,border:`1px solid ${C.border}`,background:"#fff",color:C.textMid,cursor:"pointer",fontFamily:"inherit",flexShrink:0},
+    formatRow:{display:"flex",gap:6,marginTop:6},
+    fmt:{fontSize:m?13:12,padding:m?"5px 14px":"3px 10px",borderRadius:8,border:`1px solid ${C.border}`,color:C.textMid,background:"#fff",cursor:"pointer",fontWeight:500,fontFamily:"inherit"},
   };
 
-  return <div style={{flex:1,overflowY:"auto",padding:isMobile?"16px":"20px 28px",maxWidth:640,
-    ...(isMobile?{}:{borderLeft:`1px solid ${C.border}`,minWidth:0})}}>
-    <div style={{fontSize:18,fontWeight:500,marginBottom:16}}>Settings</div>
+  return <div style={{flex:1,overflowY:"auto",padding:m?"16px 20px":"20px 28px",maxWidth:640,
+    ...(m?{}:{borderLeft:`1px solid ${C.border}`,minWidth:0})}}>
+    <div style={{fontSize:m?22:18,fontWeight:500,marginBottom:m?20:16}}>Settings</div>
 
     {/* Stats */}
     {stats && <div style={S.section}>
-      <div style={{display:"grid",gridTemplateColumns:"repeat(4,1fr)",gap:8}}>
+      <div style={{display:"grid",gridTemplateColumns:"repeat(4,1fr)",gap:m?10:8}}>
         {[["Places",stats.places],["Routes",stats.routes],["Cuisines",stats.cuisines],["Cities",stats.cities]].map(([l,v])=>
-          <div key={l} style={{background:C.surface,borderRadius:8,padding:10,textAlign:"center"}}>
-            <div style={{fontSize:20,fontWeight:500}}>{v}</div>
-            <div style={{fontSize:12,color:C.textLight,marginTop:1}}>{l}</div>
+          <div key={l} style={{background:C.surface,borderRadius:m?10:8,padding:m?14:10,textAlign:"center"}}>
+            <div style={{fontSize:m?24:20,fontWeight:500}}>{v}</div>
+            <div style={{fontSize:m?13:12,color:C.textLight,marginTop:2}}>{l}</div>
           </div>
         )}
       </div>
@@ -82,7 +80,7 @@ export default function SettingsPage({isMobile}) {
       <div style={S.sectionTitle}>Export</div>
 
       <div style={S.row}>
-        <div style={{...S.icon,background:C.blueBg}}><Icon name="download" size={14} color={C.blue}/></div>
+        <div style={{...S.icon,background:C.blueBg}}><Icon name="download" size={m?16:14} color={C.blue}/></div>
         <div style={{flex:1}}>
           <div style={S.label}>Export all places</div>
           <div style={S.desc}>Download your entire collection</div>
@@ -95,7 +93,7 @@ export default function SettingsPage({isMobile}) {
       </div>
 
       <div style={S.row}>
-        <div style={{...S.icon,background:C.blueBg}}><Icon name="route" size={14} color={C.blue} fill="none"/></div>
+        <div style={{...S.icon,background:C.blueBg}}><Icon name="route" size={m?16:14} color={C.blue} fill="none"/></div>
         <div style={{flex:1}}>
           <div style={S.label}>Export routes</div>
           <div style={S.desc}>KML with ordered waypoints for Google Maps</div>
@@ -109,7 +107,7 @@ export default function SettingsPage({isMobile}) {
       <div style={S.sectionTitle}>Import</div>
 
       <div style={S.row}>
-        <div style={{...S.icon,background:"#e6f4ea"}}><Icon name="upload" size={14} color={C.green}/></div>
+        <div style={{...S.icon,background:"#e6f4ea"}}><Icon name="upload" size={m?16:14} color={C.green}/></div>
         <div style={{flex:1}}>
           <div style={S.label}>Import places</div>
           <div style={S.desc}>Duplicates detected by coordinates</div>
@@ -122,7 +120,7 @@ export default function SettingsPage({isMobile}) {
       </div>
 
       <div style={S.row}>
-        <div style={{...S.icon,background:"#e6f4ea"}}><Icon name="pin" size={14} color={C.green} fill="none"/></div>
+        <div style={{...S.icon,background:"#e6f4ea"}}><Icon name="pin" size={m?16:14} color={C.green} fill="none"/></div>
         <div style={{flex:1}}>
           <div style={S.label}>Google Takeout</div>
           <div style={S.desc}>Import saved places from takeout.google.com (GeoJSON)</div>
@@ -131,7 +129,7 @@ export default function SettingsPage({isMobile}) {
       </div>
 
       <div style={S.row}>
-        <div style={{...S.icon,background:"#e6f4ea"}}><Icon name="upload" size={14} color={C.green}/></div>
+        <div style={{...S.icon,background:"#e6f4ea"}}><Icon name="upload" size={m?16:14} color={C.green}/></div>
         <div style={{flex:1}}>
           <div style={S.label}>Restore backup</div>
           <div style={S.desc}>Full JSON backup — merges with existing data</div>
@@ -139,8 +137,8 @@ export default function SettingsPage({isMobile}) {
         <button style={S.btn} onClick={()=>handleImport("json")}>Choose file</button>
       </div>
 
-      {importing && <div style={{padding:10,background:C.blueBg,borderRadius:8,fontSize:12,color:C.blue,marginTop:8}}>Importing...</div>}
-      {importResult && <div style={{padding:10,borderRadius:8,fontSize:12,marginTop:8,
+      {importing && <div style={{padding:12,background:C.blueBg,borderRadius:8,fontSize:m?14:12,color:C.blue,marginTop:8}}>Importing...</div>}
+      {importResult && <div style={{padding:12,borderRadius:8,fontSize:m?14:12,marginTop:8,
         background:importResult.ok?"#e6f4ea":"#fce8e6",color:importResult.ok?"#137333":"#c5221f"}}>
         {importResult.ok ? `Imported ${importResult.count} places. Reloading...` : `Error: ${importResult.error}`}
       </div>}
@@ -150,12 +148,12 @@ export default function SettingsPage({isMobile}) {
     <div style={S.section}>
       <div style={S.sectionTitle}>Google Places API</div>
       <div style={S.row}>
-        <div style={{...S.icon,background:"#fef7e0"}}><Icon name="lock" size={14} color="#b06000"/></div>
+        <div style={{...S.icon,background:"#fef7e0"}}><Icon name="lock" size={m?16:14} color="#b06000"/></div>
         <div style={{flex:1}}>
           <div style={S.label}>API key</div>
           <div style={S.desc}>Configured via GOOGLE_PLACES_API_KEY environment variable</div>
-          <div style={{display:"flex",alignItems:"center",gap:4,fontSize:12,marginTop:4}}>
-            <div style={{width:6,height:6,borderRadius:"50%",background:C.green}}/>
+          <div style={{display:"flex",alignItems:"center",gap:5,fontSize:m?13:12,marginTop:5}}>
+            <div style={{width:7,height:7,borderRadius:"50%",background:C.green}}/>
             <span style={{color:C.green,fontWeight:500}}>Connected</span>
           </div>
         </div>
@@ -166,7 +164,7 @@ export default function SettingsPage({isMobile}) {
     <div style={S.section}>
       <div style={{...S.sectionTitle,color:C.red,borderColor:"#fce8e6"}}>Danger zone</div>
       <div style={{...S.row,borderBottom:"none"}}>
-        <div style={{...S.icon,background:"#fce8e6"}}><Icon name="trash" size={14} color={C.red}/></div>
+        <div style={{...S.icon,background:"#fce8e6"}}><Icon name="trash" size={m?16:14} color={C.red}/></div>
         <div style={{flex:1}}>
           <div style={S.label}>Delete all data</div>
           <div style={S.desc}>Permanently delete all places, routes, and tags</div>
@@ -176,7 +174,7 @@ export default function SettingsPage({isMobile}) {
       </div>
     </div>
 
-    <div style={{fontSize:12,color:C.textLight,textAlign:"center",padding:"12px 0"}}>
+    <div style={{fontSize:m?13:12,color:C.textLight,textAlign:"center",padding:"16px 0"}}>
       Travel v4.0 · Self-hosted · MIT License
     </div>
   </div>;

@@ -173,7 +173,7 @@ export default function App() {
   if (isMobile && mobileRouteDetail) return <div style={{width:"100%",height:"100dvh",fontFamily:FONT,color:C.text,display:"flex",flexDirection:"column",background:C.bg}}>
     <RouteDetail route={mobileRouteDetail} onClose={()=>setMobileRouteDetail(null)}
       onPlaceClick={p=>{setMobileRouteDetail(null);setMobileDetail(p);}}
-      onEdit={r=>openRoutePlanner(r.stops,r)} places={places}/>
+      onEdit={r=>openRoutePlanner(r.stops,r)} places={places} isMobile={true}/>
     <MobileNav view={view} onNav={v=>{setMobileRouteDetail(null);switchView(v);}}/>
   </div>;
 
