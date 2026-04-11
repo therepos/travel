@@ -11,7 +11,7 @@ export default function MobileNav({view, onNav}) {
     {items.map(n => {
       const active = view === n.id;
       return <button key={n.id} onClick={()=>onNav(n.id)}
-        style={{display:"flex",flexDirection:"column",alignItems:"center",gap:2,fontSize:10,
+        style={{display:"flex",flexDirection:"column",alignItems:"center",gap:2,fontSize:12,
           color:active?C.blue:C.textLight,fontWeight:500,background:"none",border:"none",
           padding:"4px 16px",cursor:"pointer",fontFamily:"inherit"}}>
         <div style={{width:48,height:24,borderRadius:12,display:"flex",alignItems:"center",justifyContent:"center",

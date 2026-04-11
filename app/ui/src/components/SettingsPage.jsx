@@ -57,7 +57,7 @@ export default function SettingsPage({isMobile}) {
     btn:{padding:"5px 14px",borderRadius:10,fontSize:11,fontWeight:500,border:`1px solid ${C.border}`,background:"#fff",color:C.textMid,cursor:"pointer",fontFamily:"inherit",flexShrink:0},
     btnBlue:{padding:"5px 14px",borderRadius:10,fontSize:11,fontWeight:500,border:"none",background:C.blue,color:"#fff",cursor:"pointer",fontFamily:"inherit",flexShrink:0},
     formatRow:{display:"flex",gap:4,marginTop:4},
-    fmt:{fontSize:10,padding:"3px 10px",borderRadius:8,border:`1px solid ${C.border}`,color:C.textMid,background:"#fff",cursor:"pointer",fontWeight:500,fontFamily:"inherit"},
+    fmt:{fontSize:12,padding:"3px 10px",borderRadius:8,border:`1px solid ${C.border}`,color:C.textMid,background:"#fff",cursor:"pointer",fontWeight:500,fontFamily:"inherit"},
     fmtActive:{background:C.blueBg,color:C.blue,borderColor:C.blueBg},
   };
 
@@ -71,7 +71,7 @@ export default function SettingsPage({isMobile}) {
         {[["Places",stats.places],["Routes",stats.routes],["Cuisines",stats.cuisines],["Cities",stats.cities]].map(([l,v])=>
           <div key={l} style={{background:C.surface,borderRadius:8,padding:10,textAlign:"center"}}>
             <div style={{fontSize:20,fontWeight:500}}>{v}</div>
-            <div style={{fontSize:10,color:C.textLight,marginTop:1}}>{l}</div>
+            <div style={{fontSize:12,color:C.textLight,marginTop:1}}>{l}</div>
           </div>
         )}
       </div>
@@ -154,7 +154,7 @@ export default function SettingsPage({isMobile}) {
         <div style={{flex:1}}>
           <div style={S.label}>API key</div>
           <div style={S.desc}>Configured via GOOGLE_PLACES_API_KEY environment variable</div>
-          <div style={{display:"flex",alignItems:"center",gap:4,fontSize:10,marginTop:4}}>
+          <div style={{display:"flex",alignItems:"center",gap:4,fontSize:12,marginTop:4}}>
             <div style={{width:6,height:6,borderRadius:"50%",background:C.green}}/>
             <span style={{color:C.green,fontWeight:500}}>Connected</span>
           </div>
@@ -176,7 +176,7 @@ export default function SettingsPage({isMobile}) {
       </div>
     </div>
 
-    <div style={{fontSize:10,color:C.textLight,textAlign:"center",padding:"12px 0"}}>
+    <div style={{fontSize:12,color:C.textLight,textAlign:"center",padding:"12px 0"}}>
       Travel v4.0 · Self-hosted · MIT License
     </div>
   </div>;

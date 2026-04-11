@@ -226,21 +226,21 @@ export default function App() {
     <style>{`@keyframes fadeIn{from{opacity:0}to{opacity:1}}@keyframes slideUp{from{transform:translateY(100%)}to{transform:translateY(0)}}*{box-sizing:border-box;margin:0;padding:0}button{font-family:${FONT};cursor:pointer}input,textarea{font-family:${FONT}}::-webkit-scrollbar{width:6px}::-webkit-scrollbar-thumb{background:#dadce0;border-radius:3px}::-webkit-scrollbar-track{background:transparent}`}</style>
 
     {/* Top bar */}
-    <div style={{height:52,borderBottom:`1px solid ${C.border}`,display:"flex",alignItems:"center",padding:"0 16px",gap:14,flexShrink:0,position:"relative",zIndex:20}}>
-      <div style={{display:"flex",alignItems:"center",gap:7,fontSize:17,fontWeight:500,color:C.textMid,width:180,flexShrink:0,cursor:"pointer"}} onClick={()=>{switchView("places");clearFilters();}}>
-        <Icon name="pin" size={22} color={C.blue} fill="none"/> Travel
+    <div style={{height:64,borderBottom:`1px solid ${C.border}`,display:"flex",alignItems:"center",padding:"0 20px",gap:16,flexShrink:0,position:"relative",zIndex:20}}>
+      <div style={{display:"flex",alignItems:"center",gap:8,fontSize:20,fontWeight:500,color:C.textMid,width:248,flexShrink:0,cursor:"pointer"}} onClick={()=>{switchView("places");clearFilters();}}>
+        <Icon name="pin" size={24} color={C.blue} fill="none"/> Travel
       </div>
-      <div ref={searchRef} style={{flex:1,maxWidth:520,position:"relative"}}>
-        <div style={{height:38,background:searchOpen?"#fff":C.borderLight,borderRadius:searchOpen?"8px 8px 0 0":"8px",display:"flex",alignItems:"center",gap:8,padding:"0 12px",
+      <div ref={searchRef} style={{flex:1,maxWidth:560,position:"relative"}}>
+        <div style={{height:46,background:searchOpen?"#fff":C.borderLight,borderRadius:searchOpen?"8px 8px 0 0":"8px",display:"flex",alignItems:"center",gap:10,padding:"0 14px",
           border:searchOpen?`1.5px solid ${C.blue}`:"1.5px solid transparent",transition:"all .15s"}}
           onClick={()=>!searchOpen&&setSearchOpen(true)}>
-          <Icon name="search" size={16} color={searchOpen?C.blue:C.textLight}/>
+          <Icon name="search" size={20} color={searchOpen?C.blue:C.textLight}/>
           <input value={searchQuery} onChange={e=>setSearchQuery(e.target.value)}
             onFocus={()=>setSearchOpen(true)}
             placeholder="Search saved places or add new..."
-            style={{flex:1,border:"none",background:"none",fontSize:13,color:C.text,outline:"none"}}/>
+            style={{flex:1,border:"none",background:"none",fontSize:15,color:C.text,outline:"none"}}/>
           {searchOpen && <button onClick={e=>{e.stopPropagation();setSearchOpen(false);setSearchQuery("");}}
-            style={{background:"none",border:"none",padding:2}}><Icon name="x" size={14} color={C.textLight}/></button>}
+            style={{background:"none",border:"none",padding:2}}><Icon name="x" size={16} color={C.textLight}/></button>}
         </div>
         {searchOpen && <SearchDropdown query={searchQuery} places={places} onSave={handleSave}
           onSelect={p=>{setSearchOpen(false);setSearchQuery("");handlePlaceClick(p);}}
@@ -248,9 +248,9 @@ export default function App() {
           onClose={()=>{setSearchOpen(false);setSearchQuery("");}}/>}
       </div>
       <button onClick={()=>switchView("settings")} style={{background:"none",border:"none",padding:4,color:view==="settings"?C.blue:C.textMid}}>
-        <Icon name="gear" size={18}/>
+        <Icon name="gear" size={22}/>
       </button>
-      <div style={{width:30,height:30,borderRadius:"50%",background:C.blue,color:"#fff",display:"flex",alignItems:"center",justifyContent:"center",fontSize:12,fontWeight:500}}>R</div>
+      <div style={{width:34,height:34,borderRadius:"50%",background:C.blue,color:"#fff",display:"flex",alignItems:"center",justifyContent:"center",fontSize:14,fontWeight:500}}>R</div>
     </div>
 
     <div style={{display:"flex",flex:1,overflow:"hidden"}}>
@@ -265,25 +265,25 @@ export default function App() {
         clearFilters={clearFilters} routes={routes}/>
 
       {/* Main list */}
-      <div style={{width:260,display:"flex",flexDirection:"column",borderRight:`1px solid ${C.border}`,flexShrink:0}}>
-        <div style={{display:"flex",alignItems:"center",padding:"6px 10px",borderBottom:`1px solid ${C.borderLight}`,flexShrink:0,gap:4}}>
-          <div style={{display:"flex",alignItems:"center",gap:3,fontSize:10,flex:1,color:C.textLight}}>
+      <div style={{width:340,display:"flex",flexDirection:"column",borderRight:`1px solid ${C.border}`,flexShrink:0}}>
+        <div style={{display:"flex",alignItems:"center",padding:"10px 16px",borderBottom:`1px solid ${C.borderLight}`,flexShrink:0,gap:6}}>
+          <div style={{display:"flex",alignItems:"center",gap:4,fontSize:13,flex:1,color:C.textLight}}>
             {breadcrumbParts.length > 0 ? <>
-              {breadcrumbParts.map((p,i)=><span key={i}>{i>0&&<span style={{color:C.border,margin:"0 2px"}}>›</span>}<b style={{color:C.blue,fontWeight:500}}>{p}</b></span>)}
+              {breadcrumbParts.map((p,i)=><span key={i}>{i>0&&<span style={{color:C.border,margin:"0 3px"}}>›</span>}<b style={{color:C.blue,fontWeight:500}}>{p}</b></span>)}
               <span style={{marginLeft:4}}>· {filtered.length}</span>
-              <button onClick={clearFilters} style={{width:16,height:16,borderRadius:"50%",background:C.blueBg,border:"none",display:"flex",alignItems:"center",justifyContent:"center",cursor:"pointer",marginLeft:2}}>
-                <Icon name="x" size={8} color={C.blue} sw={2.5}/>
+              <button onClick={clearFilters} style={{width:20,height:20,borderRadius:"50%",background:C.blueBg,border:"none",display:"flex",alignItems:"center",justifyContent:"center",cursor:"pointer",marginLeft:3}}>
+                <Icon name="x" size={10} color={C.blue} sw={2.5}/>
               </button>
             </> : <span>All places · {filtered.length}</span>}
           </div>
-          <button onClick={()=>setSearchOpen(true)} style={{display:"flex",alignItems:"center",gap:4,padding:"4px 10px",borderRadius:14,background:C.blue,color:"#fff",border:"none",fontSize:10,fontWeight:500}}>
-            <Icon name="plus" size={12} color="#fff" sw={2.5}/> Add
+          <button onClick={()=>setSearchOpen(true)} style={{display:"flex",alignItems:"center",gap:5,padding:"6px 14px",borderRadius:16,background:C.blue,color:"#fff",border:"none",fontSize:13,fontWeight:500}}>
+            <Icon name="plus" size={14} color="#fff" sw={2.5}/> Add
           </button>
         </div>
 
         {view === "places" ? <PlaceList grouped={grouped} filtered={filtered} loading={loading}
           selectedId={selectedId} onPlaceClick={handlePlaceClick} isMobile={false}/>
-        : view === "routes" ? <div style={{flex:1,overflowY:"auto",padding:"6px 0"}}>
+        : view === "routes" ? <div style={{flex:1,overflowY:"auto",padding:"8px 0"}}>
           <RouteList routes={routes} onRouteClick={handleRouteClick} onDelete={handleDeleteRoute}
             onNew={()=>openRoutePlanner([])} isMobile={false} selectedId={routeDetailId}/>
         </div>
@@ -300,7 +300,7 @@ export default function App() {
       : view === "routes" && routeDetail ? <RouteDetail route={routeDetail}
           onClose={()=>setRouteDetailId(null)} onPlaceClick={p=>{setSelectedId(p.id);setRouteDetailId(null);setView("places");}}
           onEdit={r=>openRoutePlanner(r.stops,r)} places={places}/>
-      : <div style={{flex:1,display:"flex",alignItems:"center",justifyContent:"center",color:C.border,fontSize:13,borderLeft:`1px solid ${C.border}`}}>
+      : <div style={{flex:1,display:"flex",alignItems:"center",justifyContent:"center",color:C.border,fontSize:14,borderLeft:`1px solid ${C.border}`}}>
           {view==="places" ? "Select a place to view details" : "Select a route to view details"}
         </div>}
     </div>

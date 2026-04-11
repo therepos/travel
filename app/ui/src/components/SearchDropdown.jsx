@@ -69,85 +69,85 @@ export default function SearchDropdown({query, places, onSave, onSelect, isMobil
      zIndex:25,maxHeight:420,overflowY:"auto",boxShadow:"0 4px 16px rgba(0,0,0,.1)"};
 
   return <div style={style}>
-    {query.length < 2 && <div style={{padding:20,textAlign:"center",color:C.textLight,fontSize:13}}>Type to search saved places or add new...</div>}
+    {query.length < 2 && <div style={{padding:20,textAlign:"center",color:C.textLight,fontSize:14}}>Type to search saved places or add new...</div>}
 
     {savedMatches.length > 0 && <>
-      <div style={{fontSize:10,color:C.textLight,padding:"8px 12px 2px",fontWeight:500}}>Your saved places</div>
+      <div style={{fontSize:11,color:C.textLight,padding:"10px 16px 4px",fontWeight:500}}>Your saved places</div>
       {savedMatches.map(p => <div key={p.id} onClick={()=>onSelect(p)}
-        style={{display:"flex",gap:10,padding:"8px 12px",alignItems:"center",cursor:"pointer",borderBottom:`1px solid ${C.borderLight}`}}
+        style={{display:"flex",gap:12,padding:"10px 16px",alignItems:"center",cursor:"pointer",borderBottom:`1px solid ${C.borderLight}`}}
         onMouseEnter={e=>e.currentTarget.style.background=C.surface}
         onMouseLeave={e=>e.currentTarget.style.background="transparent"}>
-        <div style={{width:32,height:32,borderRadius:8,background:C.borderLight,overflow:"hidden",flexShrink:0}}>
+        <div style={{width:36,height:36,borderRadius:8,background:C.borderLight,overflow:"hidden",flexShrink:0}}>
           {p.photo && <img src={p.photo} alt="" style={{width:"100%",height:"100%",objectFit:"cover"}} onError={e=>{e.target.style.display="none"}}/>}
         </div>
         <div style={{flex:1}}>
-          <div style={{fontSize:12,fontWeight:500}}>{p.name}</div>
-          <div style={{fontSize:10,color:C.textMid}}>{p.place_type||p.cuisine||""}{p.city?` · ${p.city}`:""}{p.rating?` · ★ ${p.rating}`:""}</div>
+          <div style={{fontSize:14,fontWeight:500}}>{p.name}</div>
+          <div style={{fontSize:12,color:C.textMid}}>{p.place_type||p.cuisine||""}{p.city?` · ${p.city}`:""}{p.rating?` · ★ ${p.rating}`:""}</div>
         </div>
-        <Icon name="check" size={12} color={C.green} sw={2.5}/>
+        <Icon name="check" size={14} color={C.green} sw={2.5}/>
       </div>)}
     </>}
 
     {googleResults.length > 0 && <>
-      <div style={{fontSize:10,color:C.textLight,padding:"8px 12px 2px",fontWeight:500}}>Google Places</div>
+      <div style={{fontSize:11,color:C.textLight,padding:"10px 16px 4px",fontWeight:500}}>Google Places</div>
       {googleResults.map((r,i) => {
         const isSel = selectedResult === r;
         const alreadySaved = places.some(p=>p.google_place_id===r.google_place_id);
         return <div key={i}>
           <div onClick={()=>!alreadySaved && handleSelectGoogle(r)}
-            style={{display:"flex",gap:10,padding:"8px 12px",alignItems:"center",cursor:alreadySaved?"default":"pointer",
+            style={{display:"flex",gap:12,padding:"10px 16px",alignItems:"center",cursor:alreadySaved?"default":"pointer",
               background:isSel?C.blueBg:"transparent",borderBottom:`1px solid ${C.borderLight}`}}
             onMouseEnter={e=>{if(!isSel&&!alreadySaved)e.currentTarget.style.background=C.surface;}}
             onMouseLeave={e=>{if(!isSel)e.currentTarget.style.background=isSel?C.blueBg:"transparent";}}>
-            <div style={{width:32,height:32,borderRadius:8,background:isSel?C.blueLight:C.borderLight,display:"flex",alignItems:"center",justifyContent:"center",flexShrink:0}}>
-              <Icon name="pin" size={14} color={isSel?C.blue:C.textMid} sw={1.5} fill="none"/>
+            <div style={{width:36,height:36,borderRadius:8,background:isSel?C.blueLight:C.borderLight,display:"flex",alignItems:"center",justifyContent:"center",flexShrink:0}}>
+              <Icon name="pin" size={16} color={isSel?C.blue:C.textMid} sw={1.5} fill="none"/>
             </div>
             <div style={{flex:1}}>
-              <div style={{fontSize:12,fontWeight:500}}>{r.name}</div>
-              <div style={{fontSize:10,color:C.textMid}}>{r.address?.substring(0,50)}{r.rating?` · ★ ${r.rating}`:""}{r.price_level?` · ${r.price_level}`:""}</div>
+              <div style={{fontSize:14,fontWeight:500}}>{r.name}</div>
+              <div style={{fontSize:12,color:C.textMid}}>{r.address?.substring(0,50)}{r.rating?` · ★ ${r.rating}`:""}{r.price_level?` · ${r.price_level}`:""}</div>
             </div>
-            {alreadySaved ? <span style={{fontSize:9,color:C.green,fontWeight:500}}>saved</span>
-            : isSel ? <Icon name="check" size={14} color={C.blue} sw={2.5}/>
+            {alreadySaved ? <span style={{fontSize:11,color:C.green,fontWeight:500}}>saved</span>
+            : isSel ? <Icon name="check" size={16} color={C.blue} sw={2.5}/>
             : null}
           </div>
 
           {/* Save panel when selected */}
-          {isSel && <div style={{padding:"10px 12px",borderBottom:`1px solid ${C.borderLight}`,background:C.surface}}>
+          {isSel && <div style={{padding:"12px 16px",borderBottom:`1px solid ${C.borderLight}`,background:C.surface}}>
             {/* Auto info */}
-            {(r.intent||r.cuisine) && <div style={{fontSize:9,color:C.textLight,marginBottom:4}}>
+            {(r.intent||r.cuisine) && <div style={{fontSize:11,color:C.textLight,marginBottom:6}}>
               Auto: <span style={{color:C.blue,fontWeight:500}}>{r.intent}</span>
               {r.cuisine && <> · <span style={{fontWeight:500}}>{r.cuisine}</span></>}
             </div>}
 
             {/* Auto tags */}
-            {(r.auto_tags||[]).length>0 && <div style={{display:"flex",gap:3,flexWrap:"wrap",marginBottom:6}}>
-              {(r.auto_tags||[]).map(t=><span key={t} style={{fontSize:9,padding:"2px 6px",borderRadius:8,background:"#e6f4ea",color:"#137333"}}>{t}</span>)}
-              {r.cuisine && <span style={{fontSize:9,padding:"2px 6px",borderRadius:8,background:"#fef7e0",color:"#b06000"}}>{r.cuisine}</span>}
+            {(r.auto_tags||[]).length>0 && <div style={{display:"flex",gap:4,flexWrap:"wrap",marginBottom:8}}>
+              {(r.auto_tags||[]).map(t=><span key={t} style={{fontSize:11,padding:"3px 8px",borderRadius:8,background:"#e6f4ea",color:"#137333"}}>{t}</span>)}
+              {r.cuisine && <span style={{fontSize:11,padding:"3px 8px",borderRadius:8,background:"#fef7e0",color:"#b06000"}}>{r.cuisine}</span>}
             </div>}
 
             {/* Custom tags */}
-            <div style={{fontSize:9,color:C.purple,fontWeight:500,marginBottom:4}}>Your tags:</div>
-            <div style={{display:"flex",gap:3,flexWrap:"wrap",marginBottom:8}}>
+            <div style={{fontSize:11,color:C.purple,fontWeight:500,marginBottom:6}}>Your tags:</div>
+            <div style={{display:"flex",gap:4,flexWrap:"wrap",marginBottom:10}}>
               {[...new Set([...TAG_PRESETS,...existingTags])].slice(0,8).map(t =>
                 <button key={t} onClick={()=>toggleTag(t)}
-                  style={{fontSize:9,padding:"2px 7px",borderRadius:10,border:`1px solid ${customTags.includes(t)?C.purpleBg:C.border}`,
+                  style={{fontSize:11,padding:"4px 10px",borderRadius:12,border:`1px solid ${customTags.includes(t)?C.purpleBg:C.border}`,
                     background:customTags.includes(t)?C.purpleBg:"#fff",color:customTags.includes(t)?C.purple:C.textMid,cursor:"pointer",fontFamily:"inherit"}}>
                   {t}
                 </button>
               )}
-              {showNewTag ? <div style={{display:"flex",gap:2}}>
+              {showNewTag ? <div style={{display:"flex",gap:3}}>
                 <input value={newTag} onChange={e=>setNewTag(e.target.value)} onKeyDown={e=>e.key==="Enter"&&addNewTag()}
-                  autoFocus placeholder="tag name" style={{width:80,fontSize:9,padding:"2px 6px",borderRadius:8,border:`1px solid ${C.border}`,outline:"none",fontFamily:"inherit"}}/>
-                <button onClick={addNewTag} style={{fontSize:9,padding:"2px 6px",borderRadius:8,background:C.blue,color:"#fff",border:"none",fontFamily:"inherit"}}>+</button>
+                  autoFocus placeholder="tag name" style={{width:90,fontSize:11,padding:"4px 8px",borderRadius:8,border:`1px solid ${C.border}`,outline:"none",fontFamily:"inherit"}}/>
+                <button onClick={addNewTag} style={{fontSize:11,padding:"4px 8px",borderRadius:8,background:C.blue,color:"#fff",border:"none",fontFamily:"inherit"}}>+</button>
               </div>
               : <button onClick={()=>setShowNewTag(true)}
-                  style={{fontSize:9,padding:"2px 6px",borderRadius:10,border:`1px dashed ${C.border}`,color:C.textLight,background:"none",cursor:"pointer",fontFamily:"inherit",display:"flex",alignItems:"center",gap:2}}>
-                  <Icon name="plus" size={8} color={C.textLight} sw={2}/>new
+                  style={{fontSize:11,padding:"4px 8px",borderRadius:12,border:`1px dashed ${C.border}`,color:C.textLight,background:"none",cursor:"pointer",fontFamily:"inherit",display:"flex",alignItems:"center",gap:3}}>
+                  <Icon name="plus" size={10} color={C.textLight} sw={2}/>new
                 </button>}
             </div>
 
             <button onClick={handleSave} disabled={saving}
-              style={{width:"100%",padding:8,borderRadius:10,background:C.blue,color:"#fff",border:"none",fontSize:12,fontWeight:500,cursor:"pointer",fontFamily:"inherit"}}>
+              style={{width:"100%",padding:10,borderRadius:10,background:C.blue,color:"#fff",border:"none",fontSize:13,fontWeight:500,cursor:"pointer",fontFamily:"inherit"}}>
               {saving ? "Saving..." : "Save to collection"}
             </button>
           </div>}
@@ -155,8 +155,8 @@ export default function SearchDropdown({query, places, onSave, onSelect, isMobil
       })}
     </>}
 
-    {searching && <div style={{padding:16,textAlign:"center",color:C.textLight,fontSize:12}}>Searching Google Places...</div>}
+    {searching && <div style={{padding:16,textAlign:"center",color:C.textLight,fontSize:13}}>Searching Google Places...</div>}
     {query.length>=2 && !searching && googleResults.length===0 && savedMatches.length===0 &&
-      <div style={{padding:20,textAlign:"center",color:C.textLight,fontSize:12}}>No results found</div>}
+      <div style={{padding:20,textAlign:"center",color:C.textLight,fontSize:13}}>No results found</div>}
   </div>;
 }

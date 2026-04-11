@@ -73,13 +73,13 @@ const paths = {
 const dotsPaths = <><circle cx="12" cy="5" r="1.5"/><circle cx="12" cy="12" r="1.5"/><circle cx="12" cy="19" r="1.5"/></>;
 const starPath = <polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26"/>;
 
-export function Icon({name, size=18, color="currentColor", sw=2, fill="none", style={}}) {
+export function Icon({name, size=20, color="currentColor", sw=2, fill="none", style={}}) {
   if (name === "dots") return <svg width={size} height={size} viewBox="0 0 24 24" fill={color} stroke="none" style={style}>{dotsPaths}</svg>;
   if (name === "star") return <svg width={size} height={size} viewBox="0 0 24 24" fill={color} stroke="none" style={style}>{starPath}</svg>;
   return <svg width={size} height={size} viewBox="0 0 24 24" fill={fill} stroke={color} strokeWidth={sw} strokeLinecap="round" strokeLinejoin="round" style={style}>{paths[name]}</svg>;
 }
 
-export function Stars({rating, size=13}) {
+export function Stars({rating, size=14}) {
   const full = Math.floor(rating);
   return <div style={{display:"flex",gap:1}}>{[1,2,3,4,5].map(i=><Icon key={i} name="star" size={size} color={i<=full?C.yellow:C.border}/>)}</div>;
 }
@@ -90,18 +90,18 @@ export function Tag({children, variant=""}) {
     am:{bg:"#fef7e0",color:"#b06000"}, pp:{bg:C.purpleBg,color:C.purple},
   };
   const c = colors[variant] || {bg:C.borderLight,color:C.textMid};
-  return <span style={{fontSize:11,padding:"2px 8px",borderRadius:4,background:c.bg,color:c.color,whiteSpace:"nowrap"}}>{children}</span>;
+  return <span style={{fontSize:12,padding:"4px 10px",borderRadius:6,background:c.bg,color:c.color,whiteSpace:"nowrap"}}>{children}</span>;
 }
 
 export function ActionPill({icon, label, onClick}) {
-  return <button onClick={onClick} style={{display:"flex",alignItems:"center",gap:4,padding:"6px 12px",borderRadius:20,border:`1px solid ${C.border}`,fontSize:12,color:C.blue,fontWeight:500,background:"#fff",cursor:"pointer",fontFamily:"inherit"}}>
-    <Icon name={icon} size={14} color={C.blue}/>{label}
+  return <button onClick={onClick} style={{display:"flex",alignItems:"center",gap:6,padding:"8px 16px",borderRadius:20,border:`1px solid ${C.border}`,fontSize:13,color:C.blue,fontWeight:500,background:"#fff",cursor:"pointer",fontFamily:"inherit"}}>
+    <Icon name={icon} size={18} color={C.blue}/>{label}
   </button>;
 }
 
 export function InfoRow({icon, children}) {
-  return <div style={{display:"flex",alignItems:"flex-start",gap:10,padding:"7px 0",borderTop:`1px solid ${C.borderLight}`,fontSize:13}}>
-    <Icon name={icon} size={16} color={C.textLight} style={{marginTop:1,flexShrink:0}}/><div style={{flex:1}}>{children}</div>
+  return <div style={{display:"flex",alignItems:"flex-start",gap:12,padding:"10px 0",borderTop:`1px solid ${C.borderLight}`,fontSize:14}}>
+    <Icon name={icon} size={18} color={C.textLight} style={{marginTop:2,flexShrink:0}}/><div style={{flex:1}}>{children}</div>
   </div>;
 }
 

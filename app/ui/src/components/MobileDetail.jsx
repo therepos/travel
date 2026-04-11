@@ -66,7 +66,7 @@ export default function MobileDetail({place, onClose, onDelete, onEdit, onRefres
 
       {/* Reviews */}
       {(place.reviews||[]).length>0 && <div style={{marginTop:10,paddingTop:10,borderTop:`1px solid ${C.borderLight}`}}>
-        <div style={{fontSize:10,color:C.textLight,fontWeight:500,textTransform:"uppercase",letterSpacing:".4px",marginBottom:6}}>Reviews</div>
+        <div style={{fontSize:12,color:C.textLight,fontWeight:500,textTransform:"uppercase",letterSpacing:".4px",marginBottom:6}}>Reviews</div>
         {(place.reviews||[]).map((r,i) => <div key={i} style={{padding:10,background:C.surface,borderRadius:8,marginBottom:6}}>
           <div style={{display:"flex",justifyContent:"space-between",marginBottom:3}}>
             <span style={{fontSize:13,fontWeight:500}}>{r.author}</span>
@@ -105,7 +105,7 @@ export default function MobileDetail({place, onClose, onDelete, onEdit, onRefres
 
 function Sec({label, children}) {
   return <div style={{marginTop:8,paddingTop:8,borderTop:`1px solid ${C.borderLight}`}}>
-    <div style={{fontSize:10,color:C.textLight,fontWeight:500,textTransform:"uppercase",letterSpacing:".4px",marginBottom:4}}>{label}</div>
+    <div style={{fontSize:12,color:C.textLight,fontWeight:500,textTransform:"uppercase",letterSpacing:".4px",marginBottom:4}}>{label}</div>
     <div style={{display:"flex",gap:4,flexWrap:"wrap"}}>{children}</div>
   </div>;
 }

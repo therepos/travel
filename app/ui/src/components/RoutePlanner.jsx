@@ -55,76 +55,76 @@ export default function RoutePlanner({allPlaces, initialStops, editingRoute, onC
 
   const content = <>
     {/* Header */}
-    <div style={{display:"flex",alignItems:"center",gap:8,padding:"10px 14px",borderBottom:`1px solid ${C.borderLight}`,flexShrink:0}}>
-      <div style={{width:26,height:26,borderRadius:7,background:"#e6f4ea",display:"flex",alignItems:"center",justifyContent:"center",flexShrink:0}}>
-        <Icon name="route" size={13} color={C.green} sw={2}/>
+    <div style={{display:"flex",alignItems:"center",gap:10,padding:"12px 16px",borderBottom:`1px solid ${C.borderLight}`,flexShrink:0}}>
+      <div style={{width:30,height:30,borderRadius:8,background:"#e6f4ea",display:"flex",alignItems:"center",justifyContent:"center",flexShrink:0}}>
+        <Icon name="route" size={16} color={C.green} sw={2}/>
       </div>
       <input value={name} onChange={e=>setName(e.target.value)}
-        style={{flex:1,border:"none",background:"none",fontSize:14,fontWeight:500,color:C.text,outline:"none",fontFamily:"inherit"}}
+        style={{flex:1,border:"none",background:"none",fontSize:15,fontWeight:500,color:C.text,outline:"none",fontFamily:"inherit"}}
         placeholder="Route name..."/>
-      <span style={{fontSize:10,color:C.textLight}}>{activeStops.length} stops</span>
-      {!isMobile && <button onClick={onClose} style={{background:"none",border:"none",padding:2}}><Icon name="x" size={16} color={C.textLight} sw={2}/></button>}
+      <span style={{fontSize:12,color:C.textLight}}>{activeStops.length} stops</span>
+      {!isMobile && <button onClick={onClose} style={{background:"none",border:"none",padding:2}}><Icon name="x" size={18} color={C.textLight} sw={2}/></button>}
     </div>
 
     {/* Search */}
-    <div style={{display:"flex",alignItems:"center",gap:6,margin:"8px 14px",padding:"7px 10px",background:C.borderLight,borderRadius:8}}>
-      <Icon name="search" size={14} color={C.textLight}/>
+    <div style={{display:"flex",alignItems:"center",gap:8,margin:"10px 16px",padding:"8px 12px",background:C.borderLight,borderRadius:8}}>
+      <Icon name="search" size={16} color={C.textLight}/>
       <input value={searchQ} onChange={e=>setSearchQ(e.target.value)}
         placeholder="Search saved or Google Places..."
-        style={{flex:1,border:"none",background:"none",fontSize:12,color:C.text,outline:"none",fontFamily:"inherit"}}/>
+        style={{flex:1,border:"none",background:"none",fontSize:13,color:C.text,outline:"none",fontFamily:"inherit"}}/>
       {searchQ && <button onClick={()=>{setSearchQ("");setGoogleResults([]);}} style={{background:"none",border:"none",padding:0}}>
-        <Icon name="x" size={12} color={C.textLight} sw={2}/>
+        <Icon name="x" size={14} color={C.textLight} sw={2}/>
       </button>}
     </div>
 
     {/* Google results when searching */}
-    {searchQ.length >= 2 && (googleResults.length > 0 || searching) && <div style={{margin:"0 14px 6px",border:`1px solid ${C.border}`,borderRadius:8,overflow:"hidden",flexShrink:0}}>
+    {searchQ.length >= 2 && (googleResults.length > 0 || searching) && <div style={{margin:"0 16px 8px",border:`1px solid ${C.border}`,borderRadius:8,overflow:"hidden",flexShrink:0}}>
       {savedMatches.filter(p=>!selected.includes(p.id)).slice(0,3).map(p =>
         <div key={p.id} onClick={()=>toggle(p.id)}
-          style={{display:"flex",gap:6,padding:"6px 8px",alignItems:"center",fontSize:11,cursor:"pointer",borderBottom:`1px solid ${C.borderLight}`,background:C.surface}}>
-          <div style={{width:24,height:24,borderRadius:5,background:C.border,overflow:"hidden",flexShrink:0}}>
+          style={{display:"flex",gap:8,padding:"8px 10px",alignItems:"center",fontSize:13,cursor:"pointer",borderBottom:`1px solid ${C.borderLight}`,background:C.surface}}>
+          <div style={{width:28,height:28,borderRadius:6,background:C.border,overflow:"hidden",flexShrink:0}}>
             {p.photo && <img src={p.photo} alt="" style={{width:"100%",height:"100%",objectFit:"cover"}}/>}
           </div>
-          <div style={{flex:1}}><div style={{fontWeight:500}}>{p.name}</div><div style={{fontSize:9,color:C.textMid}}>{p.city||p.country}</div></div>
-          <span style={{fontSize:8,color:C.green,fontWeight:500,background:"#e6f4ea",padding:"1px 6px",borderRadius:6}}>saved</span>
+          <div style={{flex:1}}><div style={{fontWeight:500}}>{p.name}</div><div style={{fontSize:11,color:C.textMid}}>{p.city||p.country}</div></div>
+          <span style={{fontSize:11,color:C.green,fontWeight:500,background:"#e6f4ea",padding:"2px 8px",borderRadius:6}}>saved</span>
         </div>
       )}
       {googleResults.filter(r=>!allPlaces.some(p=>p.google_place_id===r.google_place_id)).slice(0,3).map((r,i) =>
         <div key={i} onClick={()=>addGooglePlace(r)}
-          style={{display:"flex",gap:6,padding:"6px 8px",alignItems:"center",fontSize:11,cursor:"pointer",borderBottom:`1px solid ${C.borderLight}`}}>
-          <div style={{width:24,height:24,borderRadius:5,background:C.borderLight,display:"flex",alignItems:"center",justifyContent:"center",flexShrink:0}}>
-            <Icon name="pin" size={12} color={C.textMid} sw={1.5} fill="none"/>
+          style={{display:"flex",gap:8,padding:"8px 10px",alignItems:"center",fontSize:13,cursor:"pointer",borderBottom:`1px solid ${C.borderLight}`}}>
+          <div style={{width:28,height:28,borderRadius:6,background:C.borderLight,display:"flex",alignItems:"center",justifyContent:"center",flexShrink:0}}>
+            <Icon name="pin" size={14} color={C.textMid} sw={1.5} fill="none"/>
           </div>
-          <div style={{flex:1}}><div style={{fontWeight:500}}>{r.name}</div><div style={{fontSize:9,color:C.textMid}}>{r.city||r.address?.substring(0,30)}</div></div>
-          <span style={{fontSize:8,color:C.blue,fontWeight:500,background:C.blueBg,padding:"1px 6px",borderRadius:6}}>+ add</span>
+          <div style={{flex:1}}><div style={{fontWeight:500}}>{r.name}</div><div style={{fontSize:11,color:C.textMid}}>{r.city||r.address?.substring(0,30)}</div></div>
+          <span style={{fontSize:11,color:C.blue,fontWeight:500,background:C.blueBg,padding:"2px 8px",borderRadius:6}}>+ add</span>
         </div>
       )}
-      {searching && <div style={{padding:8,textAlign:"center",fontSize:10,color:C.textLight}}>Searching...</div>}
+      {searching && <div style={{padding:10,textAlign:"center",fontSize:12,color:C.textLight}}>Searching...</div>}
     </div>}
 
     {/* Map preview */}
-    {activeStops.length > 0 && <div style={{height:90,background:"#e8eaed",margin:"0 14px",borderRadius:8,flexShrink:0,display:"flex",alignItems:"center",justifyContent:"center",color:"#9aa0a6",fontSize:9}}>
-      <Icon name="route" size={18} color="#9aa0a6" sw={1.5} fill="none" style={{marginRight:4}}/> Route map
+    {activeStops.length > 0 && <div style={{height:100,background:"#e8eaed",margin:"0 16px",borderRadius:8,flexShrink:0,display:"flex",alignItems:"center",justifyContent:"center",color:"#9aa0a6",fontSize:12}}>
+      <Icon name="route" size={20} color="#9aa0a6" sw={1.5} fill="none" style={{marginRight:6}}/> Route map
     </div>}
 
     {/* Stop list */}
-    <div style={{flex:1,overflowY:"auto",padding:"6px 14px"}}>
-      {activeStops.map((p,i) => <div key={p.id} style={{display:"flex",gap:8,alignItems:"stretch"}}>
-        <div style={{display:"flex",flexDirection:"column",alignItems:"center",width:16,flexShrink:0,paddingTop:8}}>
-          <div style={{width:8,height:8,borderRadius:"50%",background:i===activeStops.length-1?C.red:C.blue,flexShrink:0}}/>
-          {i<activeStops.length-1 && <div style={{width:2,background:C.border,flex:1,margin:"2px 0"}}/>}
+    <div style={{flex:1,overflowY:"auto",padding:"8px 16px"}}>
+      {activeStops.map((p,i) => <div key={p.id} style={{display:"flex",gap:10,alignItems:"stretch"}}>
+        <div style={{display:"flex",flexDirection:"column",alignItems:"center",width:18,flexShrink:0,paddingTop:10}}>
+          <div style={{width:10,height:10,borderRadius:"50%",background:i===activeStops.length-1?C.red:C.blue,flexShrink:0}}/>
+          {i<activeStops.length-1 && <div style={{width:2,background:C.border,flex:1,margin:"3px 0"}}/>}
         </div>
-        <div style={{flex:1,display:"flex",alignItems:"center",gap:6,padding:"6px 0",borderBottom:i<activeStops.length-1?`1px solid ${C.borderLight}`:"none"}}>
-          <div style={{width:26,height:26,borderRadius:5,background:C.border,overflow:"hidden",flexShrink:0}}>
+        <div style={{flex:1,display:"flex",alignItems:"center",gap:8,padding:"8px 0",borderBottom:i<activeStops.length-1?`1px solid ${C.borderLight}`:"none"}}>
+          <div style={{width:30,height:30,borderRadius:6,background:C.border,overflow:"hidden",flexShrink:0}}>
             {p.photo && <img src={p.photo} alt="" style={{width:"100%",height:"100%",objectFit:"cover"}}/>}
           </div>
           <div style={{flex:1,minWidth:0}}>
-            <div style={{fontSize:11,fontWeight:500,whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis"}}>{p.name}</div>
-            <div style={{fontSize:9,color:C.textMid}}>{p.city||p.country}</div>
+            <div style={{fontSize:13,fontWeight:500,whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis"}}>{p.name}</div>
+            <div style={{fontSize:11,color:C.textMid}}>{p.city||p.country}</div>
           </div>
-          <div style={{width:18,height:18,borderRadius:"50%",background:C.blue,color:"#fff",display:"flex",alignItems:"center",justifyContent:"center",fontSize:9,fontWeight:500,flexShrink:0}}>{i+1}</div>
+          <div style={{width:22,height:22,borderRadius:"50%",background:C.blue,color:"#fff",display:"flex",alignItems:"center",justifyContent:"center",fontSize:11,fontWeight:500,flexShrink:0}}>{i+1}</div>
           <button onClick={()=>toggle(p.id)} style={{background:"none",border:"none",padding:2,cursor:"pointer"}}>
-            <Icon name="x" size={12} color={C.textLight} sw={2}/>
+            <Icon name="x" size={14} color={C.textLight} sw={2}/>
           </button>
         </div>
       </div>)}
@@ -132,32 +132,32 @@ export default function RoutePlanner({allPlaces, initialStops, editingRoute, onC
       {/* Unselected places */}
       {!searchQ && allPlaces.filter(p=>!selected.includes(p.id)).slice(0,10).map(p =>
         <div key={p.id} onClick={()=>toggle(p.id)}
-          style={{display:"flex",alignItems:"center",gap:6,padding:"6px 8px",borderRadius:6,cursor:"pointer",marginBottom:2,opacity:0.6}}
+          style={{display:"flex",alignItems:"center",gap:8,padding:"8px 10px",borderRadius:6,cursor:"pointer",marginBottom:2,opacity:0.6}}
           onMouseEnter={e=>e.currentTarget.style.opacity=1}
           onMouseLeave={e=>e.currentTarget.style.opacity=0.6}>
-          <div style={{width:18,height:18,borderRadius:"50%",background:C.borderLight,flexShrink:0}}/>
-          <div style={{width:26,height:26,borderRadius:5,background:C.border,overflow:"hidden",flexShrink:0}}>
+          <div style={{width:20,height:20,borderRadius:"50%",background:C.borderLight,flexShrink:0}}/>
+          <div style={{width:30,height:30,borderRadius:6,background:C.border,overflow:"hidden",flexShrink:0}}>
             {p.photo && <img src={p.photo} alt="" style={{width:"100%",height:"100%",objectFit:"cover"}}/>}
           </div>
           <div style={{flex:1,minWidth:0}}>
-            <div style={{fontSize:11,fontWeight:500,color:C.textMid,whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis"}}>{p.name}</div>
-            <div style={{fontSize:9,color:C.textLight}}>{p.city||p.country}</div>
+            <div style={{fontSize:13,fontWeight:500,color:C.textMid,whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis"}}>{p.name}</div>
+            <div style={{fontSize:11,color:C.textLight}}>{p.city||p.country}</div>
           </div>
         </div>
       )}
     </div>
 
     {/* Save */}
-    <div style={{display:"flex",gap:8,padding:"10px 14px",borderTop:`1px solid ${C.borderLight}`,flexShrink:0}}>
+    <div style={{display:"flex",gap:10,padding:"12px 16px",borderTop:`1px solid ${C.borderLight}`,flexShrink:0}}>
       <button onClick={onClose}
-        style={{flex:1,padding:9,borderRadius:12,fontSize:12,fontWeight:500,border:"none",background:C.blueBg,color:C.blue,cursor:"pointer",fontFamily:"inherit"}}>
+        style={{flex:1,padding:10,borderRadius:14,fontSize:13,fontWeight:500,border:"none",background:C.blueBg,color:C.blue,cursor:"pointer",fontFamily:"inherit"}}>
         Cancel
       </button>
       <button onClick={save} disabled={activeStops.length===0||saving}
-        style={{flex:1,padding:9,borderRadius:12,fontSize:12,fontWeight:500,border:"none",
+        style={{flex:1,padding:10,borderRadius:14,fontSize:13,fontWeight:500,border:"none",
           background:activeStops.length>0?C.blue:C.border,color:activeStops.length>0?"#fff":C.textLight,
-          cursor:activeStops.length>0?"pointer":"default",fontFamily:"inherit",display:"flex",alignItems:"center",justifyContent:"center",gap:4}}>
-        <Icon name="check" size={12} color={activeStops.length>0?"#fff":C.textLight} sw={2.5}/>
+          cursor:activeStops.length>0?"pointer":"default",fontFamily:"inherit",display:"flex",alignItems:"center",justifyContent:"center",gap:5}}>
+        <Icon name="check" size={14} color={activeStops.length>0?"#fff":C.textLight} sw={2.5}/>
         {saving?"Saving...":editingRoute?"Update":"Save route"}
       </button>
     </div>
