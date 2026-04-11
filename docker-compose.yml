@@ -6,9 +6,9 @@ services:
     ports:
       - "3050:8000"
     volumes:
-      - travel-data:/data
+      - /mnt/sec/apps/travel/data:/data
     environment:
       - GOOGLE_PLACES_API_KEY=${GOOGLE_PLACES_API_KEY}
-
-volumes:
-  travel-data:
+    security_opt:
+      - apparmor=unconfined
+      - seccomp=unconfined
