@@ -14,7 +14,73 @@ import MobileNav from "./components/MobileNav.jsx";
 
 const FONT = "'Google Sans',-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif";
 
+// ── Auth Screen ─────────────────────────────────────────
+function AuthScreen({onAuth}) {
+  const [mode,setMode] = useState("login");
+  const [username,setUsername] = useState("");
+  const [password,setPassword] = useState("");
+  const [displayName,setDisplayName] = useState("");
+  const [error,setError] = useState("");
+  const [loading,setLoading] = useState(false);
+
+  const submit = async e => {
+    e.preventDefault(); setError(""); setLoading(true);
+    try {
+      const body = mode==="login" ? {username,password} : {username,password,display_name:displayName||username};
+      const res = await fetch(`/api/auth/${mode==="login"?"login":"register"}`,{
+        method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify(body)});
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.detail||"Failed");
+      onAuth(data.user);
+    } catch(err) { setError(err.message); }
+    setLoading(false);
+  };
+
+  return <div style={{width:"100vw",height:"100dvh",display:"flex",alignItems:"center",justifyContent:"center",fontFamily:FONT,background:C.bg}}>
+    <div style={{width:"100%",maxWidth:380,padding:"0 24px"}}>
+      <div style={{textAlign:"center",marginBottom:32}}>
+        <div style={{display:"inline-flex",alignItems:"center",gap:10,fontSize:28,fontWeight:500,color:C.text}}>
+          <Icon name="pin" size={32} color={C.blue} fill="none"/> Travel
+        </div>
+        <div style={{fontSize:15,color:C.textMid,marginTop:6}}>Your personal travel wishlist</div>
+      </div>
+
+      <form onSubmit={submit} style={{display:"flex",flexDirection:"column",gap:14}}>
+        <input value={username} onChange={e=>setUsername(e.target.value)} placeholder="Username"
+          autoComplete="username" autoCapitalize="none" required
+          style={{padding:"14px 16px",borderRadius:12,border:`1.5px solid ${C.border}`,fontSize:16,fontFamily:FONT,outline:"none",background:C.bg,color:C.text,transition:"border .15s"}}
+          onFocus={e=>{e.target.style.borderColor=C.blue;}} onBlur={e=>{e.target.style.borderColor=C.border;}}/>
+        {mode==="register" && <input value={displayName} onChange={e=>setDisplayName(e.target.value)} placeholder="Display name (optional)"
+          style={{padding:"14px 16px",borderRadius:12,border:`1.5px solid ${C.border}`,fontSize:16,fontFamily:FONT,outline:"none",background:C.bg,color:C.text,transition:"border .15s"}}
+          onFocus={e=>{e.target.style.borderColor=C.blue;}} onBlur={e=>{e.target.style.borderColor=C.border;}}/>}
+        <input value={password} onChange={e=>setPassword(e.target.value)} placeholder="Password"
+          type="password" autoComplete={mode==="login"?"current-password":"new-password"} required
+          style={{padding:"14px 16px",borderRadius:12,border:`1.5px solid ${C.border}`,fontSize:16,fontFamily:FONT,outline:"none",background:C.bg,color:C.text,transition:"border .15s"}}
+          onFocus={e=>{e.target.style.borderColor=C.blue;}} onBlur={e=>{e.target.style.borderColor=C.border;}}/>
+
+        {error && <div style={{padding:"10px 14px",borderRadius:10,background:"#fce8e6",color:"#c5221f",fontSize:14}}>{error}</div>}
+
+        <button type="submit" disabled={loading}
+          style={{padding:14,borderRadius:12,border:"none",background:C.blue,color:"#fff",fontSize:16,fontWeight:500,fontFamily:FONT,cursor:loading?"wait":"pointer",opacity:loading?.7:1,transition:"opacity .15s"}}>
+          {loading ? "..." : mode==="login" ? "Sign in" : "Create account"}
+        </button>
+      </form>
+
+      <div style={{textAlign:"center",marginTop:20,fontSize:14,color:C.textMid}}>
+        {mode==="login" ? <>
+          Don't have an account?{" "}
+          <button onClick={()=>{setMode("register");setError("");}} style={{background:"none",border:"none",color:C.blue,fontWeight:500,fontSize:14,cursor:"pointer",fontFamily:FONT}}>Sign up</button>
+        </> : <>
+          Already have an account?{" "}
+          <button onClick={()=>{setMode("login");setError("");}} style={{background:"none",border:"none",color:C.blue,fontWeight:500,fontSize:14,cursor:"pointer",fontFamily:FONT}}>Sign in</button>
+        </>}
+      </div>
+    </div>
+  </div>;
+}
+
 export default function App() {
+  const [user,setUser] = useState(undefined); // undefined=loading, null=not logged in, object=logged in
   const [places,setPlaces] = useState([]);
   const [routes,setRoutes] = useState([]);
   const [loading,setLoading] = useState(true);
@@ -41,6 +107,11 @@ export default function App() {
   const [isMobile,setIsMobile] = useState(false);
   const containerRef = useRef(null);
   const searchRef = useRef(null);
+
+  // Check auth on mount
+  useEffect(() => {
+    fetch("/api/auth/me").then(r=>r.json()).then(d=>{setUser(d.user||null);}).catch(()=>setUser(null));
+  }, []);
 
   useEffect(() => {
     const check = () => setIsMobile(window.innerWidth < 768);
@@ -71,7 +142,19 @@ export default function App() {
     api("/places").then(d=>{setPlaces(d.places||[]);setLoading(false);}).catch(()=>setLoading(false));
     api("/routes").then(d=>setRoutes(d.routes||[])).catch(()=>{});
   }, []);
-  useEffect(load,[load]);
+  useEffect(()=>{ if(user) load(); },[user, load]);
+
+  const handleLogout = async () => {
+    await fetch("/api/auth/logout",{method:"POST"});
+    setUser(null); setPlaces([]); setRoutes([]);
+  };
+
+  // Auth gate
+  if (user === undefined) return <div style={{width:"100vw",height:"100dvh",display:"flex",alignItems:"center",justifyContent:"center",fontFamily:FONT,color:C.textLight}}>Loading...</div>;
+  if (user === null) return <AuthScreen onAuth={u=>{setUser(u);setLoading(true);}}/>;
+
+  const userInitial = (user.display_name||user.username||"?")[0].toUpperCase();
+  const userColor = user.color || C.blue;
 
   // Filter places
   const filtered = places.filter(p => {
@@ -222,7 +305,7 @@ export default function App() {
         : <span style={{flex:1,fontSize:16,color:C.textLight}}>Search your places</span>}
         {searchOpen && <button onClick={e=>{e.stopPropagation();setSearchOpen(false);setSearchQuery("");}} style={{background:"none",border:"none",padding:4,cursor:"pointer"}}><Icon name="x" size={18} color={C.textLight}/></button>}
       </div>
-      {!searchOpen && <div onClick={()=>switchView("settings")} style={{width:36,height:36,borderRadius:"50%",background:C.blue,color:"#fff",display:"flex",alignItems:"center",justifyContent:"center",fontSize:14,fontWeight:500,flexShrink:0,cursor:"pointer"}}>R</div>}
+      {!searchOpen && <div onClick={()=>switchView("settings")} style={{width:36,height:36,borderRadius:"50%",background:userColor,color:"#fff",display:"flex",alignItems:"center",justifyContent:"center",fontSize:14,fontWeight:500,flexShrink:0,cursor:"pointer"}}>{userInitial}</div>}
     </div>
 
     {searchOpen ? <SearchDropdown query={searchQuery} places={places} onSave={handleSave} onSelect={p=>{setSearchOpen(false);setSearchQuery("");handlePlaceClick(p);}} isMobile={true} onClose={()=>{setSearchOpen(false);setSearchQuery("");}}/> : <>
@@ -279,7 +362,7 @@ export default function App() {
           onNew={()=>openRoutePlanner([])} isMobile={true} selectedId={null}
           bulkMode={bulkMode} bulkSelected={bulkSelected}/>
       </div>
-      : <SettingsPage isMobile={true}/>}
+      : <SettingsPage isMobile={true} user={user} onLogout={handleLogout}/>}
 
       {/* FAB — consistent across places and routes */}
       {view==="places" && !bulkMode && <button onClick={()=>setSearchOpen(true)} style={{position:"absolute",bottom:72,right:14,width:56,height:56,borderRadius:16,background:C.blue,color:"#fff",border:"none",display:"flex",alignItems:"center",justifyContent:"center",zIndex:4,boxShadow:"0 2px 8px rgba(26,115,232,0.35)",cursor:"pointer"}}>
@@ -348,7 +431,7 @@ export default function App() {
         <button onClick={()=>switchView("settings")} style={{background:"none",border:"none",padding:4,color:view==="settings"?C.blue:C.textMid}}>
           <Icon name="gear" size={22}/>
         </button>
-        <div style={{width:34,height:34,borderRadius:"50%",background:C.blue,color:"#fff",display:"flex",alignItems:"center",justifyContent:"center",fontSize:14,fontWeight:500}}>R</div>
+        <div style={{width:34,height:34,borderRadius:"50%",background:userColor,color:"#fff",display:"flex",alignItems:"center",justifyContent:"center",fontSize:14,fontWeight:500}}>{userInitial}</div>
       </div>
     </div>
 
@@ -409,7 +492,7 @@ export default function App() {
       </div>
 
       {/* Right panel */}
-      {view === "settings" ? <SettingsPage isMobile={false}/>
+      {view === "settings" ? <SettingsPage isMobile={false} user={user} onLogout={handleLogout}/>
       : routePlanner ? <RoutePlanner allPlaces={places} initialStops={routePlanner.initialStops}
           editingRoute={routePlanner.editingRoute} onClose={()=>setRoutePlanner(null)} onSaved={handleRouteSaved} isMobile={false}/>
       : view === "places" && selected ? <DetailPanel place={selected}

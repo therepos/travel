@@ -1,10 +1,11 @@
-import os, json, csv, io, re, httpx, sqlite3
+import os, json, csv, io, re, httpx, sqlite3, hashlib, secrets
 from pathlib import Path
 from datetime import date
 from contextlib import asynccontextmanager
-from fastapi import FastAPI, HTTPException, Query, UploadFile, File
+from fastapi import FastAPI, HTTPException, Query, UploadFile, File, Request, Response, Cookie, Depends
 from fastapi.staticfiles import StaticFiles
-from fastapi.responses import FileResponse, RedirectResponse, Response
+from fastapi.responses import FileResponse, RedirectResponse
+from fastapi.responses import Response as FastAPIResponse
 from pydantic import BaseModel
 from typing import Optional
 
@@ -18,11 +19,30 @@ def get_db():
     conn.execute("PRAGMA journal_mode=WAL")
     return conn
 
+def _hash_pw(password, salt=None):
+    if not salt: salt = secrets.token_hex(16)
+    h = hashlib.pbkdf2_hmac("sha256", password.encode(), salt.encode(), 100000).hex()
+    return f"{salt}:{h}"
+
+def _check_pw(password, stored):
+    salt = stored.split(":")[0]
+    return _hash_pw(password, salt) == stored
+
 def init_db():
     Path(DB_PATH).parent.mkdir(parents=True, exist_ok=True)
     conn = get_db()
+    conn.execute("""CREATE TABLE IF NOT EXISTS users (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        username TEXT UNIQUE NOT NULL, display_name TEXT DEFAULT '',
+        password TEXT NOT NULL, color TEXT DEFAULT '#1A73E8',
+        created TEXT NOT NULL)""")
+    conn.execute("""CREATE TABLE IF NOT EXISTS sessions (
+        token TEXT PRIMARY KEY, user_id INTEGER NOT NULL,
+        created TEXT NOT NULL,
+        FOREIGN KEY (user_id) REFERENCES users(id))""")
     conn.execute("""CREATE TABLE IF NOT EXISTS places (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
+        user_id INTEGER DEFAULT 0,
         name TEXT NOT NULL, address TEXT DEFAULT '', country TEXT DEFAULT '',
         city TEXT DEFAULT '', district TEXT DEFAULT '', region TEXT DEFAULT '',
         lat REAL NOT NULL, lng REAL NOT NULL, photo TEXT DEFAULT '',
@@ -39,9 +59,15 @@ def init_db():
         saved TEXT NOT NULL)""")
     conn.execute("""CREATE TABLE IF NOT EXISTS routes (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
+        user_id INTEGER DEFAULT 0,
         name TEXT NOT NULL, stops TEXT DEFAULT '[]', route_url TEXT DEFAULT '',
         created TEXT NOT NULL, updated TEXT NOT NULL)""")
     conn.commit()
+    # Migrate: add user_id if missing
+    for table in ["places","routes"]:
+        cols = {row[1] for row in conn.execute(f"PRAGMA table_info({table})").fetchall()}
+        if "user_id" not in cols:
+            conn.execute(f"ALTER TABLE {table} ADD COLUMN user_id INTEGER DEFAULT 0")
     cursor = conn.execute("PRAGMA table_info(places)")
     existing = {row[1] for row in cursor.fetchall()}
     for col, typedef in [("city","TEXT DEFAULT ''"),("district","TEXT DEFAULT ''"),
@@ -149,11 +175,95 @@ class RouteCreate(BaseModel):
 class RouteUpdate(BaseModel):
     name:Optional[str]=None; stops:Optional[list[int]]=None
 
+class UserRegister(BaseModel):
+    username:str; password:str; display_name:str=""
+
+class UserLogin(BaseModel):
+    username:str; password:str
+
+class UserUpdate(BaseModel):
+    display_name:Optional[str]=None; color:Optional[str]=None
+
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     init_db(); yield
 
 app = FastAPI(title="Travel", lifespan=lifespan)
+
+# ── Auth dependency ──────────────────────────────────────
+AVATAR_COLORS = ["#1A73E8","#EA4335","#34A853","#FBBC04","#5E35B1","#E8710A","#D93025","#1E8E3E"]
+
+def get_user(request: Request):
+    """Get current user from session cookie. Returns None if not logged in."""
+    token = request.cookies.get("session")
+    if not token: return None
+    conn = get_db()
+    row = conn.execute("SELECT u.* FROM users u JOIN sessions s ON u.id=s.user_id WHERE s.token=?", (token,)).fetchone()
+    conn.close()
+    return dict(row) if row else None
+
+def require_user(request: Request):
+    """Same as get_user but raises 401 if not logged in."""
+    user = get_user(request)
+    if not user: raise HTTPException(401, "Not logged in")
+    return user
+
+# ── Auth endpoints ───────────────────────────────────────
+@app.post("/api/auth/register")
+def register(body: UserRegister, response: Response):
+    conn = get_db()
+    if conn.execute("SELECT id FROM users WHERE username=?", (body.username.lower().strip(),)).fetchone():
+        conn.close(); raise HTTPException(409, "Username taken")
+    pw = _hash_pw(body.password)
+    color = AVATAR_COLORS[conn.execute("SELECT COUNT(*) FROM users").fetchone()[0] % len(AVATAR_COLORS)]
+    dn = body.display_name or body.username
+    conn.execute("INSERT INTO users (username,display_name,password,color,created) VALUES (?,?,?,?,?)",
+        (body.username.lower().strip(), dn, pw, color, date.today().isoformat()))
+    conn.commit()
+    user = conn.execute("SELECT * FROM users WHERE username=?", (body.username.lower().strip(),)).fetchone()
+    token = secrets.token_hex(32)
+    conn.execute("INSERT INTO sessions (token,user_id,created) VALUES (?,?,?)", (token, user["id"], date.today().isoformat()))
+    conn.commit(); conn.close()
+    response.set_cookie("session", token, httponly=True, samesite="lax", max_age=86400*90)
+    return {"user": {"id":user["id"],"username":user["username"],"display_name":user["display_name"],"color":user["color"]}}
+
+@app.post("/api/auth/login")
+def login(body: UserLogin, response: Response):
+    conn = get_db()
+    user = conn.execute("SELECT * FROM users WHERE username=?", (body.username.lower().strip(),)).fetchone()
+    if not user or not _check_pw(body.password, user["password"]):
+        conn.close(); raise HTTPException(401, "Invalid credentials")
+    token = secrets.token_hex(32)
+    conn.execute("INSERT INTO sessions (token,user_id,created) VALUES (?,?,?)", (token, user["id"], date.today().isoformat()))
+    conn.commit(); conn.close()
+    response.set_cookie("session", token, httponly=True, samesite="lax", max_age=86400*90)
+    return {"user": {"id":user["id"],"username":user["username"],"display_name":user["display_name"],"color":user["color"]}}
+
+@app.post("/api/auth/logout")
+def logout(request: Request, response: Response):
+    token = request.cookies.get("session")
+    if token:
+        conn = get_db(); conn.execute("DELETE FROM sessions WHERE token=?", (token,)); conn.commit(); conn.close()
+    response.delete_cookie("session")
+    return {"ok": True}
+
+@app.get("/api/auth/me")
+def me(request: Request):
+    user = get_user(request)
+    if not user: return {"user": None}
+    return {"user": {"id":user["id"],"username":user["username"],"display_name":user["display_name"],"color":user["color"]}}
+
+@app.patch("/api/auth/me")
+def update_me(updates: UserUpdate, request: Request):
+    user = require_user(request)
+    conn = get_db(); fields = []; values = []
+    if updates.display_name is not None: fields.append("display_name=?"); values.append(updates.display_name)
+    if updates.color is not None: fields.append("color=?"); values.append(updates.color)
+    if fields:
+        values.append(user["id"])
+        conn.execute(f"UPDATE users SET {','.join(fields)} WHERE id=?", values); conn.commit()
+    row = conn.execute("SELECT * FROM users WHERE id=?", (user["id"],)).fetchone(); conn.close()
+    return {"user": {"id":row["id"],"username":row["username"],"display_name":row["display_name"],"color":row["color"]}}
 
 # ── Region mapping ────────────────────────────────────────
 REGION_MAP = {
@@ -348,19 +458,23 @@ def row_to_place(row):
     return d
 
 @app.get("/api/places")
-def list_places():
-    conn=get_db(); rows=conn.execute("SELECT * FROM places ORDER BY id DESC").fetchall(); conn.close()
+def list_places(request: Request):
+    user = get_user(request)
+    uid = user["id"] if user else 0
+    conn=get_db(); rows=conn.execute("SELECT * FROM places WHERE user_id=? ORDER BY id DESC",(uid,)).fetchall(); conn.close()
     return {"places":[row_to_place(r) for r in rows]}
 
 @app.post("/api/places")
-def create_place(place:PlaceCreate):
+def create_place(place:PlaceCreate, request: Request):
+    user = get_user(request)
+    uid = user["id"] if user else 0
     conn=get_db(); saved=place.saved or date.today().isoformat()
     cursor=conn.execute(
-        """INSERT INTO places (name,address,country,city,district,region,lat,lng,photo,tags,auto_tags,notes,
+        """INSERT INTO places (user_id,name,address,country,city,district,region,lat,lng,photo,tags,auto_tags,notes,
            google_place_id,google_maps_url,phone,website,rating,rating_count,price_level,hours,
            editorial_summary,dining,serves,amenities,place_type,payment,reviews,intent,cuisine,sub_type,saved)
-           VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)""",
-        (place.name,place.address,place.country,place.city,place.district,place.region,
+           VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)""",
+        (uid,place.name,place.address,place.country,place.city,place.district,place.region,
          place.lat,place.lng,place.photo,json.dumps(place.tags),json.dumps(place.auto_tags),
          place.notes,place.google_place_id,place.google_maps_url,place.phone,place.website,
          place.rating,place.rating_count,place.price_level,place.hours,place.editorial_summary,
@@ -372,9 +486,10 @@ def create_place(place:PlaceCreate):
     return row_to_place(row)
 
 @app.put("/api/places/{place_id}")
-def update_place(place_id:int,updates:PlaceUpdate):
+def update_place(place_id:int,updates:PlaceUpdate, request: Request):
+    user = get_user(request); uid = user["id"] if user else 0
     conn=get_db()
-    row=conn.execute("SELECT * FROM places WHERE id=?",(place_id,)).fetchone()
+    row=conn.execute("SELECT * FROM places WHERE id=? AND user_id=?",(place_id,uid)).fetchone()
     if not row: conn.close(); raise HTTPException(404,"Place not found")
     fields,values=[],[]
     if updates.name is not None: fields.append("name=?"); values.append(updates.name)
@@ -388,17 +503,19 @@ def update_place(place_id:int,updates:PlaceUpdate):
     return row_to_place(row)
 
 @app.delete("/api/places/{place_id}")
-def delete_place(place_id:int):
+def delete_place(place_id:int, request: Request):
+    user = get_user(request); uid = user["id"] if user else 0
     conn=get_db()
-    if not conn.execute("SELECT id FROM places WHERE id=?",(place_id,)).fetchone(): conn.close(); raise HTTPException(404)
+    if not conn.execute("SELECT id FROM places WHERE id=? AND user_id=?",(place_id,uid)).fetchone(): conn.close(); raise HTTPException(404)
     conn.execute("DELETE FROM places WHERE id=?",(place_id,)); conn.commit(); conn.close()
     return {"ok":True}
 
 @app.post("/api/places/{place_id}/refresh")
-async def refresh_place(place_id:int):
+async def refresh_place(place_id:int, request: Request):
     if not GOOGLE_API_KEY: raise HTTPException(500,"Google Places API key not configured")
+    user = get_user(request); uid = user["id"] if user else 0
     conn=get_db()
-    row=conn.execute("SELECT * FROM places WHERE id=?",(place_id,)).fetchone()
+    row=conn.execute("SELECT * FROM places WHERE id=? AND user_id=?",(place_id,uid)).fetchone()
     if not row: conn.close(); raise HTTPException(404)
     place=dict(row); gid=place.get("google_place_id","")
     if not gid: conn.close(); raise HTTPException(400,"No Google Place ID")
@@ -445,8 +562,9 @@ def _travel_estimate(lat1,lng1,lat2,lng2):
     return {"distance":_fmt_dist(d),"distance_m":d,"drive_min":drive_min,"walk_min":walk_min}
 
 @app.get("/api/routes")
-def list_routes():
-    conn=get_db(); rows=conn.execute("SELECT * FROM routes ORDER BY updated DESC").fetchall()
+def list_routes(request: Request):
+    user = get_user(request); uid = user["id"] if user else 0
+    conn=get_db(); rows=conn.execute("SELECT * FROM routes WHERE user_id=? ORDER BY updated DESC",(uid,)).fetchall()
     routes=[]
     for row in rows:
         r=row_to_route(row)
@@ -469,22 +587,24 @@ def list_routes():
     conn.close(); return {"routes":routes}
 
 @app.post("/api/routes")
-def create_route(route:RouteCreate):
+def create_route(route:RouteCreate, request: Request):
+    user = get_user(request); uid = user["id"] if user else 0
     conn=get_db(); now=date.today().isoformat(); url=""
     if route.stops:
         ph=",".join("?"*len(route.stops))
         rows=conn.execute(f"SELECT id,lat,lng FROM places WHERE id IN ({ph})",route.stops).fetchall()
         pm={dict(r)["id"]:dict(r) for r in rows}
         url=build_route_url([pm[sid] for sid in route.stops if sid in pm])
-    cursor=conn.execute("INSERT INTO routes (name,stops,route_url,created,updated) VALUES (?,?,?,?,?)",
-        (route.name,json.dumps(route.stops),url,now,now))
+    cursor=conn.execute("INSERT INTO routes (user_id,name,stops,route_url,created,updated) VALUES (?,?,?,?,?,?)",
+        (uid,route.name,json.dumps(route.stops),url,now,now))
     conn.commit(); row=conn.execute("SELECT * FROM routes WHERE id=?",(cursor.lastrowid,)).fetchone(); conn.close()
     return row_to_route(row)
 
 @app.put("/api/routes/{route_id}")
-def update_route(route_id:int,updates:RouteUpdate):
+def update_route(route_id:int,updates:RouteUpdate, request: Request):
+    user = get_user(request); uid = user["id"] if user else 0
     conn=get_db()
-    if not conn.execute("SELECT id FROM routes WHERE id=?",(route_id,)).fetchone(): conn.close(); raise HTTPException(404)
+    if not conn.execute("SELECT id FROM routes WHERE id=? AND user_id=?",(route_id,uid)).fetchone(): conn.close(); raise HTTPException(404)
     now=date.today().isoformat(); fields,values=["updated=?"],[now]
     if updates.name is not None: fields.append("name=?"); values.append(updates.name)
     if updates.stops is not None:
@@ -499,9 +619,10 @@ def update_route(route_id:int,updates:RouteUpdate):
     return row_to_route(row)
 
 @app.delete("/api/routes/{route_id}")
-def delete_route(route_id:int):
+def delete_route(route_id:int, request: Request):
+    user = get_user(request); uid = user["id"] if user else 0
     conn=get_db()
-    if not conn.execute("SELECT id FROM routes WHERE id=?",(route_id,)).fetchone(): conn.close(); raise HTTPException(404)
+    if not conn.execute("SELECT id FROM routes WHERE id=? AND user_id=?",(route_id,uid)).fetchone(): conn.close(); raise HTTPException(404)
     conn.execute("DELETE FROM routes WHERE id=?",(route_id,)); conn.commit(); conn.close()
     return {"ok":True}
 
@@ -677,38 +798,41 @@ def get_place_highlights(place_id:int):
 
 # ── Export ────────────────────────────────────────────────
 @app.get("/api/export/json")
-def export_json():
+def export_json(request: Request):
+    user = get_user(request); uid = user["id"] if user else 0
     conn=get_db()
-    places=[row_to_place(r) for r in conn.execute("SELECT * FROM places ORDER BY id DESC").fetchall()]
-    routes=[row_to_route(r) for r in conn.execute("SELECT * FROM routes ORDER BY updated DESC").fetchall()]
+    places=[row_to_place(r) for r in conn.execute("SELECT * FROM places WHERE user_id=? ORDER BY id DESC",(uid,)).fetchall()]
+    routes=[row_to_route(r) for r in conn.execute("SELECT * FROM routes WHERE user_id=? ORDER BY updated DESC",(uid,)).fetchall()]
     conn.close()
-    return Response(content=json.dumps({"places":places,"routes":routes},indent=2),
+    return FastAPIResponse(content=json.dumps({"places":places,"routes":routes},indent=2),
         media_type="application/json",headers={"Content-Disposition":"attachment; filename=travel-backup.json"})
 
 @app.get("/api/export/csv")
-def export_csv():
-    conn=get_db(); places=[row_to_place(r) for r in conn.execute("SELECT * FROM places ORDER BY id DESC").fetchall()]; conn.close()
+def export_csv(request: Request):
+    user = get_user(request); uid = user["id"] if user else 0
+    conn=get_db(); places=[row_to_place(r) for r in conn.execute("SELECT * FROM places WHERE user_id=? ORDER BY id DESC",(uid,)).fetchall()]; conn.close()
     out=io.StringIO()
     flds=["id","name","address","country","city","district","region","lat","lng","rating","rating_count",
           "price_level","place_type","intent","cuisine","sub_type","phone","website","hours",
           "editorial_summary","google_maps_url","google_place_id","tags","auto_tags","notes","saved"]
     w=csv.DictWriter(out,fieldnames=flds,extrasaction="ignore"); w.writeheader()
     for p in places: p["tags"]=";".join(p.get("tags") or []); p["auto_tags"]=";".join(p.get("auto_tags") or []); w.writerow(p)
-    return Response(content=out.getvalue(),media_type="text/csv",
+    return FastAPIResponse(content=out.getvalue(),media_type="text/csv",
         headers={"Content-Disposition":"attachment; filename=travel-places.csv"})
 
 @app.get("/api/export/kml")
-def export_kml(route_id:Optional[int]=None):
+def export_kml(request: Request, route_id:Optional[int]=None):
+    user = get_user(request); uid = user["id"] if user else 0
     conn=get_db()
     if route_id:
-        row=conn.execute("SELECT * FROM routes WHERE id=?",(route_id,)).fetchone()
+        row=conn.execute("SELECT * FROM routes WHERE id=? AND user_id=?",(route_id,uid)).fetchone()
         if not row: conn.close(); raise HTTPException(404)
         route=row_to_route(row); ph=",".join("?"*len(route["stops"]))
         rows=conn.execute(f"SELECT * FROM places WHERE id IN ({ph})",route["stops"]).fetchall()
         pm={row_to_place(r)["id"]:row_to_place(r) for r in rows}
         places=[pm[sid] for sid in route["stops"] if sid in pm]; doc_name=route["name"]
     else:
-        places=[row_to_place(r) for r in conn.execute("SELECT * FROM places ORDER BY id DESC").fetchall()]
+        places=[row_to_place(r) for r in conn.execute("SELECT * FROM places WHERE user_id=? ORDER BY id DESC",(uid,)).fetchall()]
         doc_name="Travel Places"
     conn.close()
     parts=['<?xml version="1.0" encoding="UTF-8"?>','<kml xmlns="http://www.opengis.net/kml/2.2">',
@@ -828,18 +952,20 @@ async def import_geojson(file:UploadFile=File(...)):
     conn.commit(); conn.close(); return {"imported":imported}
 
 @app.delete("/api/data/all")
-def delete_all_data():
-    conn=get_db(); conn.execute("DELETE FROM places"); conn.execute("DELETE FROM routes"); conn.commit(); conn.close()
+def delete_all_data(request: Request):
+    user = get_user(request); uid = user["id"] if user else 0
+    conn=get_db(); conn.execute("DELETE FROM places WHERE user_id=?",(uid,)); conn.execute("DELETE FROM routes WHERE user_id=?",(uid,)); conn.commit(); conn.close()
     return {"ok":True}
 
 @app.get("/api/stats")
-def get_stats():
+def get_stats(request: Request):
+    user = get_user(request); uid = user["id"] if user else 0
     conn=get_db()
-    r={"places":conn.execute("SELECT COUNT(*) FROM places").fetchone()[0],
-       "routes":conn.execute("SELECT COUNT(*) FROM routes").fetchone()[0],
-       "cuisines":conn.execute("SELECT COUNT(DISTINCT cuisine) FROM places WHERE cuisine!=''").fetchone()[0],
-       "cities":conn.execute("SELECT COUNT(DISTINCT city) FROM places WHERE city!=''").fetchone()[0],
-       "countries":conn.execute("SELECT COUNT(DISTINCT country) FROM places WHERE country!=''").fetchone()[0]}
+    r={"places":conn.execute("SELECT COUNT(*) FROM places WHERE user_id=?",(uid,)).fetchone()[0],
+       "routes":conn.execute("SELECT COUNT(*) FROM routes WHERE user_id=?",(uid,)).fetchone()[0],
+       "cuisines":conn.execute("SELECT COUNT(DISTINCT cuisine) FROM places WHERE cuisine!='' AND user_id=?",(uid,)).fetchone()[0],
+       "cities":conn.execute("SELECT COUNT(DISTINCT city) FROM places WHERE city!='' AND user_id=?",(uid,)).fetchone()[0],
+       "countries":conn.execute("SELECT COUNT(DISTINCT country) FROM places WHERE country!='' AND user_id=?",(uid,)).fetchone()[0]}
     conn.close(); return r
 
 # ── Serve frontend ────────────────────────────────────────

@@ -1,7 +1,7 @@
 import { useState, useEffect } from "react";
 import { api, C, Icon } from "../shared.jsx";
 
-export default function SettingsPage({isMobile}) {
+export default function SettingsPage({isMobile, user, onLogout}) {
   const [stats,setStats] = useState(null);
   const [importing,setImporting] = useState(false);
   const [importResult,setImportResult] = useState(null);
@@ -62,6 +62,24 @@ export default function SettingsPage({isMobile}) {
   return <div style={{flex:1,overflowY:"auto",padding:m?"16px 20px":"20px 28px",maxWidth:640,
     ...(m?{}:{borderLeft:`1px solid ${C.border}`,minWidth:0})}}>
     <div style={{fontSize:m?22:18,fontWeight:500,marginBottom:m?20:16}}>Settings</div>
+
+    {/* Account */}
+    {user && <div style={S.section}>
+      <div style={S.sectionTitle}>Account</div>
+      <div style={{display:"flex",alignItems:"center",gap:m?14:12,padding:m?"14px 0":"10px 0",borderBottom:`1px solid ${C.borderLight}`}}>
+        <div style={{width:m?48:42,height:m?48:42,borderRadius:"50%",background:user.color||C.blue,color:"#fff",display:"flex",alignItems:"center",justifyContent:"center",fontSize:m?20:18,fontWeight:500,flexShrink:0}}>
+          {(user.display_name||user.username||"?")[0].toUpperCase()}
+        </div>
+        <div style={{flex:1}}>
+          <div style={{fontSize:m?16:14,fontWeight:500}}>{user.display_name||user.username}</div>
+          <div style={{fontSize:m?14:12,color:C.textMid}}>@{user.username}</div>
+        </div>
+        <button onClick={onLogout}
+          style={{padding:m?"8px 16px":"6px 14px",borderRadius:10,fontSize:m?14:12,fontWeight:500,border:`1px solid ${C.border}`,background:"#fff",color:C.textMid,cursor:"pointer",fontFamily:"inherit"}}>
+          Sign out
+        </button>
+      </div>
+    </div>}
 
     {/* Stats */}
     {stats && <div style={S.section}>
