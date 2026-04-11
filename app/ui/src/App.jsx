@@ -301,9 +301,30 @@ export default function App() {
 
     {/* Top bar */}
     <div style={{height:64,borderBottom:`1px solid ${C.border}`,display:"flex",alignItems:"center",padding:"0 20px",gap:16,flexShrink:0,position:"relative",zIndex:20}}>
-      <div style={{display:"flex",alignItems:"center",gap:8,fontSize:20,fontWeight:500,color:C.textMid,width:248,flexShrink:0,cursor:"pointer"}} onClick={()=>{switchView("places");clearFilters();}}>
+      <div style={{display:"flex",alignItems:"center",gap:8,fontSize:20,fontWeight:500,color:C.textMid,flexShrink:0,cursor:"pointer"}} onClick={()=>{switchView("places");clearFilters();}}>
         <Icon name="pin" size={24} color={C.blue} fill="none"/> Travel
       </div>
+
+      {/* Places / Routes tabs */}
+      <div style={{display:"flex",gap:2,background:C.borderLight,borderRadius:8,padding:2,flexShrink:0}}>
+        <button onClick={()=>{switchView("places");clearFilters();}}
+          style={{padding:"7px 16px",borderRadius:6,fontSize:13,fontWeight:500,border:"none",cursor:"pointer",fontFamily:"inherit",transition:"all .15s",
+            background:view==="places"||view==="settings"?"#fff":"transparent",color:view==="places"?C.blue:C.textMid,
+            boxShadow:view==="places"?"0 1px 3px rgba(0,0,0,.08)":"none",
+            display:"flex",alignItems:"center",gap:5}}>
+          <Icon name="layers" size={15} sw={1.5} color={view==="places"?C.blue:C.textMid}/> Places
+          <span style={{fontSize:11,color:C.textLight,background:view==="places"?C.blueBg:C.surface,padding:"1px 6px",borderRadius:6}}>{places.length}</span>
+        </button>
+        <button onClick={()=>switchView("routes")}
+          style={{padding:"7px 16px",borderRadius:6,fontSize:13,fontWeight:500,border:"none",cursor:"pointer",fontFamily:"inherit",transition:"all .15s",
+            background:view==="routes"?"#fff":"transparent",color:view==="routes"?C.blue:C.textMid,
+            boxShadow:view==="routes"?"0 1px 3px rgba(0,0,0,.08)":"none",
+            display:"flex",alignItems:"center",gap:5}}>
+          <Icon name="route" size={15} sw={1.5} color={view==="routes"?C.blue:C.textMid}/> Routes
+          <span style={{fontSize:11,color:C.textLight,background:view==="routes"?C.blueBg:C.surface,padding:"1px 6px",borderRadius:6}}>{routes.length}</span>
+        </button>
+      </div>
+
       <div ref={searchRef} style={{flex:1,maxWidth:560,position:"relative"}}>
         <div style={{height:46,background:searchOpen?"#fff":C.borderLight,borderRadius:searchOpen?"8px 8px 0 0":"8px",display:"flex",alignItems:"center",gap:10,padding:"0 14px",
           border:searchOpen?`1.5px solid ${C.blue}`:"1.5px solid transparent",transition:"all .15s"}}
@@ -328,15 +349,15 @@ export default function App() {
     </div>
 
     <div style={{display:"flex",flex:1,overflow:"hidden"}}>
-      {/* Sidebar */}
-      <Sidebar places={places} view={view} switchView={switchView}
+      {/* Sidebar — category filters, only shown for places */}
+      {view==="places" && <Sidebar places={places} view={view} switchView={switchView}
         expandedIntent={expandedIntent} setExpandedIntent={setExpandedIntent}
         filterIntent={filterIntent} setFilterIntent={setFilterIntent}
         filterCuisine={filterCuisine} setFilterCuisine={setFilterCuisine}
         filterSubType={filterSubType} setFilterSubType={setFilterSubType}
         filterRegion={filterRegion} setFilterRegion={setFilterRegion}
         filterTag={filterTag} setFilterTag={setFilterTag}
-        clearFilters={clearFilters} routes={routes}/>
+        clearFilters={clearFilters} routes={routes}/>}
 
       {/* Main list */}
       <div style={{width:340,display:"flex",flexDirection:"column",borderRight:`1px solid ${C.border}`,flexShrink:0}}>

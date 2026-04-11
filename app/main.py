@@ -502,14 +502,25 @@ def _fmt_dist(m):
     if m<1000: return f"{int(m)}m"
     return f"{m/1000:.1f}km"
 
-TRANSIT_TYPES = ["subway_station","train_station","transit_station","light_rail_station","bus_station","taxi_stand"]
+def _classify_transit(types, stype):
+    """Classify into MRT, Bus, or Train"""
+    sl = stype.lower() if stype else ""
+    if any(t in types for t in ["subway_station","light_rail_station"]) or "subway" in sl or "mrt" in sl or "metro" in sl:
+        return "MRT"
+    if "bus_station" in types or "bus" in sl:
+        return "Bus"
+    if "train_station" in types or "train" in sl:
+        return "Train"
+    if "transit_station" in types:
+        return "MRT"
+    return "Transit"
 
 @app.get("/api/nearby-transit")
 async def nearby_transit(lat:float,lng:float):
-    if not GOOGLE_API_KEY: return {"stations":[]}
+    if not GOOGLE_API_KEY: return {"groups":[]}
     headers={"Content-Type":"application/json","X-Goog-Api-Key":GOOGLE_API_KEY,
              "X-Goog-FieldMask":"places.displayName,places.location,places.types,places.primaryTypeDisplayName"}
-    stations=[]
+    raw=[]
     async with httpx.AsyncClient(timeout=10) as client:
         for ttype in ["subway_station","train_station","transit_station","bus_station"]:
             try:
@@ -525,19 +536,118 @@ async def nearby_transit(lat:float,lng:float):
                         dist=_haversine(lat,lng,plat,plng)
                         ptdn=p.get("primaryTypeDisplayName",{})
                         stype=ptdn.get("text","") if isinstance(ptdn,dict) else ""
-                        # Map type labels
-                        if not stype:
-                            types=p.get("types",[])
-                            if "subway_station" in types: stype="MRT/Metro"
-                            elif "train_station" in types: stype="Train"
-                            elif "bus_station" in types: stype="Bus Stop"
-                            elif "transit_station" in types: stype="Transit"
-                        if any(s["name"]==name for s in stations): continue
-                        stations.append({"name":name,"distance":_fmt_dist(dist),"distance_m":dist,"type":stype})
+                        types=p.get("types",[])
+                        category=_classify_transit(types, stype)
+                        if any(s["name"]==name for s in raw): continue
+                        raw.append({"name":name,"distance":_fmt_dist(dist),"distance_m":dist,"category":category})
             except: pass
-    stations.sort(key=lambda s:s["distance_m"])
-    for s in stations: del s["distance_m"]
-    return {"stations":stations[:6]}
+    raw.sort(key=lambda s:s["distance_m"])
+    # Group by category, max 2 per group
+    groups={}
+    for s in raw:
+        cat=s["category"]
+        if cat not in groups: groups[cat]=[]
+        if len(groups[cat])<2:
+            groups[cat].append({"name":s["name"],"distance":s["distance"]})
+    # Order: MRT first, then Bus, then Train, then others
+    order=["MRT","Bus","Train","Transit"]
+    result=[]
+    for cat in order:
+        if cat in groups:
+            result.append({"category":cat,"stations":groups[cat]})
+    for cat in groups:
+        if cat not in order:
+            result.append({"category":cat,"stations":groups[cat]})
+    return {"groups":result}
+
+# ── Review Highlights ────────────────────────────────────
+import re as _re
+
+def _extract_highlights(reviews, editorial="", serves=None, dining=None, amenities=None):
+    """Extract what makes this place special from review text."""
+    highlights=[]
+    if editorial:
+        highlights.append({"type":"summary","text":editorial})
+
+    all_text=" ".join(r.get("text","") for r in (reviews or []))
+    if not all_text.strip():
+        return highlights
+
+    # Extract specific items mentioned (food, drinks, dishes)
+    food_patterns=[
+        r'(?:try|order|recommend|must.?have|famous for|known for|best|signature|specialty)[:\s]+([A-Z][a-zA-Z\s&\']+?)(?:[,.\!;]|$)',
+        r'(?:the|their)\s+([A-Z][a-zA-Z\s&\']{3,30})\s+(?:is|was|are|were)\s+(?:amazing|excellent|fantastic|great|incredible|delicious|superb|outstanding|perfect)',
+    ]
+    found_items=set()
+    for pat in food_patterns:
+        for m in _re.finditer(pat, all_text):
+            item=m.group(1).strip().rstrip(".,!; ")
+            if 3<=len(item)<=40 and item.lower() not in ("the place","this place","the food","the service","the staff","the restaurant","the cafe","the coffee"):
+                found_items.add(item)
+    for item in list(found_items)[:4]:
+        highlights.append({"type":"signature","text":item})
+
+    # Extract vibe/atmosphere descriptors
+    vibe_words={"cozy","cosy","intimate","lively","vibrant","chill","relaxed","trendy","hipster",
+                "rustic","modern","minimalist","aesthetic","instagrammable","rooftop","alfresco",
+                "romantic","family-friendly","hidden gem","hole in the wall","spacious","quiet",
+                "bustling","crowded","popular","packed","busy"}
+    found_vibes=set()
+    lower=all_text.lower()
+    for v in vibe_words:
+        if v in lower: found_vibes.add(v)
+    for v in list(found_vibes)[:3]:
+        highlights.append({"type":"vibe","text":v})
+
+    # Extract pain points / tips
+    if any(w in lower for w in ["queue","wait","line up","long wait","crowded","packed","reservation"]):
+        if any(w in lower for w in ["queue","wait","line up","long wait"]):
+            highlights.append({"type":"tip","text":"expect queues"})
+        if "reservation" in lower:
+            highlights.append({"type":"tip","text":"reservations recommended"})
+
+    # Best time hints
+    if any(w in lower for w in ["weekday","weekdays"]):
+        highlights.append({"type":"tip","text":"better on weekdays"})
+    if any(w in lower for w in ["sunset","evening view","night view"]):
+        highlights.append({"type":"tip","text":"great for sunset/evening"})
+
+    # Value hints
+    if any(w in lower for w in ["worth the price","value for money","affordable","cheap","budget"]):
+        highlights.append({"type":"vibe","text":"good value"})
+    if any(w in lower for w in ["overpriced","expensive","pricey"]):
+        highlights.append({"type":"tip","text":"on the pricier side"})
+
+    # Add serves/dining/amenity context
+    if serves:
+        for s in serves[:3]:
+            highlights.append({"type":"serves","text":s})
+    if dining:
+        for d in dining:
+            if d!="dine-in": highlights.append({"type":"dining","text":d})
+    if amenities:
+        a_map={"good for kids":"family-friendly","live music":"live music","sports viewing":"sports viewing",
+               "dogs allowed":"pet-friendly","parking":"parking available","outdoor seating":"outdoor seating"}
+        for a in amenities:
+            if a in a_map: highlights.append({"type":"vibe","text":a_map[a]})
+
+    # Deduplicate
+    seen=set(); unique=[]
+    for h in highlights:
+        k=h["text"].lower()
+        if k not in seen: seen.add(k); unique.append(h)
+    return unique[:12]
+
+@app.get("/api/places/{place_id}/highlights")
+def get_place_highlights(place_id:int):
+    conn=get_db()
+    row=conn.execute("SELECT * FROM places WHERE id=?",(place_id,)).fetchone()
+    if not row: conn.close(); raise HTTPException(404)
+    p=row_to_place(row); conn.close()
+    return {"highlights":_extract_highlights(
+        p.get("reviews",[]), p.get("editorial_summary",""),
+        p.get("serves",[]), p.get("dining",[]), p.get("amenities",[])
+    )}
 
 # ── Export ────────────────────────────────────────────────
 @app.get("/api/export/json")

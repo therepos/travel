@@ -1,36 +1,37 @@
 import { useState, useEffect } from "react";
 import { C, Icon, Stars, Tag, ActionPill, InfoRow, api } from "../shared.jsx";
 
+const HIGHLIGHT_COLORS = {
+  summary: {bg:"#f0f4ff",color:"#1a56db",border:"#d0daf8"},
+  signature: {bg:"#fef7e0",color:"#92610e",border:"#f5e1a4"},
+  vibe: {bg:"#e6f4ea",color:"#137333",border:"#b7dfbf"},
+  tip: {bg:"#fce8e6",color:"#c5221f",border:"#f5c6c2"},
+  serves: {bg:C.borderLight,color:C.textMid,border:C.border},
+  dining: {bg:C.borderLight,color:C.textMid,border:C.border},
+};
+
+const TRANSIT_ICONS = {MRT:"🚇", Bus:"🚌", Train:"🚆", Transit:"🚏"};
+
 export default function DetailPanel({place, onClose, onDelete, onEdit, onRefresh, onShare}) {
   const [refreshing,setRefreshing] = useState(false);
   const [toast,setToast] = useState(null);
   const [transport,setTransport] = useState(null);
-  const [loadingTransport,setLoadingTransport] = useState(false);
+  const [highlights,setHighlights] = useState(null);
+  const [loadingExtra,setLoadingExtra] = useState(false);
   const mapsUrl = place.google_maps_url||`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(place.name)}`;
   const allTags = [...(place.tags||[])];
   const autoTags = [...(place.auto_tags||[])];
 
-  // Build "Known for" from available data
-  const popular = [];
-  if (place.editorial_summary) popular.push(place.editorial_summary);
-  (place.serves||[]).forEach(s => popular.push(s));
-  (place.dining||[]).filter(d => d !== "dine-in").forEach(d => popular.push(d));
-  if ((place.amenities||[]).includes("good for kids")) popular.push("family-friendly");
-  if ((place.amenities||[]).includes("live music")) popular.push("live music");
-  if ((place.amenities||[]).includes("sports viewing")) popular.push("sports viewing");
-  if ((place.amenities||[]).includes("dogs allowed")) popular.push("pet-friendly");
-  if ((place.amenities||[]).includes("parking")) popular.push("parking available");
-
-  // Fetch nearby transit
   useEffect(() => {
-    setTransport(null);
-    if (place.lat && place.lng) {
-      setLoadingTransport(true);
-      api(`/nearby-transit?lat=${place.lat}&lng=${place.lng}`)
-        .then(d => setTransport(d))
-        .catch(() => setTransport(null))
-        .finally(() => setLoadingTransport(false));
-    }
+    setTransport(null); setHighlights(null);
+    if (!place.id) return;
+    setLoadingExtra(true);
+    Promise.all([
+      place.lat && place.lng ? api(`/nearby-transit?lat=${place.lat}&lng=${place.lng}`).catch(()=>null) : null,
+      api(`/places/${place.id}/highlights`).catch(()=>null),
+    ]).then(([t,h]) => {
+      setTransport(t); setHighlights(h?.highlights||[]);
+    }).finally(()=>setLoadingExtra(false));
   }, [place.id]);
 
   const doRefresh = async () => {
@@ -40,6 +41,9 @@ export default function DetailPanel({place, onClose, onDelete, onEdit, onRefresh
     setRefreshing(false);
     setTimeout(()=>setToast(null),3000);
   };
+
+  const summaryHighlight = (highlights||[]).find(h=>h.type==="summary");
+  const otherHighlights = (highlights||[]).filter(h=>h.type!=="summary");
 
   return <div style={{flex:1,overflow:"auto",minWidth:0,borderLeft:`1px solid ${C.border}`,display:"flex",flexDirection:"column"}}>
     {/* Map */}
@@ -75,11 +79,8 @@ export default function DetailPanel({place, onClose, onDelete, onEdit, onRefresh
         <ActionPill icon="refresh" label="Refresh" onClick={doRefresh} disabled={refreshing}/>
       </div>
 
-      {/* Toast */}
       {toast && <div style={{padding:"6px 14px",borderRadius:16,fontSize:13,fontWeight:500,marginBottom:10,display:"inline-block",
-        background:toast.type==="ok"?"#e6f4ea":"#fce8e6",color:toast.type==="ok"?"#137333":"#c5221f"}}>
-        {toast.msg}
-      </div>}
+        background:toast.type==="ok"?"#e6f4ea":"#fce8e6",color:toast.type==="ok"?"#137333":"#c5221f"}}>{toast.msg}</div>}
 
       {/* Tags */}
       <div style={{display:"flex",gap:6,flexWrap:"wrap",marginBottom:10}}>
@@ -88,17 +89,33 @@ export default function DetailPanel({place, onClose, onDelete, onEdit, onRefresh
         {allTags.map(t=><Tag key={t} variant="pp">{t}</Tag>)}
       </div>
 
-      {/* Info rows - fixed 2-column grid with aligned tops */}
+      {/* Why this place — highlights from reviews */}
+      {highlights && highlights.length>0 && <div style={{marginBottom:12,paddingBottom:12,borderBottom:`1px solid ${C.borderLight}`}}>
+        <div style={{fontSize:11,color:C.textLight,fontWeight:500,textTransform:"uppercase",letterSpacing:".4px",marginBottom:6}}>Why this place</div>
+        {summaryHighlight && <div style={{fontSize:13,color:"#1a56db",lineHeight:1.5,marginBottom:8,fontStyle:"italic",
+          padding:"8px 12px",background:"#f0f4ff",borderRadius:8,borderLeft:"3px solid #1a56db"}}>
+          {summaryHighlight.text}
+        </div>}
+        <div style={{display:"flex",gap:5,flexWrap:"wrap"}}>
+          {otherHighlights.map((h,i)=>{
+            const c=HIGHLIGHT_COLORS[h.type]||HIGHLIGHT_COLORS.serves;
+            return <span key={i} style={{fontSize:12,padding:"4px 10px",borderRadius:6,
+              background:c.bg,color:c.color,border:`1px solid ${c.border}`,whiteSpace:"nowrap"}}>
+              {h.type==="signature"?"⭐ ":h.type==="tip"?"💡 ":""}{h.text}
+            </span>;
+          })}
+        </div>
+      </div>}
+
+      {/* Info rows */}
       <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:"0 16px",alignItems:"start"}}>
         <div>
-          {place.hours && <InfoRow icon="clock">
-            <div>{place.hours.split("|")[0]?.trim()}</div>
-          </InfoRow>}
+          {place.hours && <InfoRow icon="clock"><div>{place.hours.split("|")[0]?.trim()}</div></InfoRow>}
           {place.address && <InfoRow icon="pin">{place.address}</InfoRow>}
           {place.phone && <InfoRow icon="phone">{place.phone}</InfoRow>}
           {place.website && <InfoRow icon="globe"><a href={place.website} target="_blank" rel="noopener" style={{color:C.blue,textDecoration:"none",fontSize:14,wordBreak:"break-all"}}>{place.website.replace(/^https?:\/\/(www\.)?/,"").split("/")[0]}</a></InfoRow>}
         </div>
-        <div style={{paddingTop:0}}>
+        <div>
           {(place.amenities||[]).length>0 && <Section label="Amenities">{(place.amenities||[]).map(a=><Tag key={a}>{a}</Tag>)}</Section>}
           {(place.payment||[]).length>0 && <Section label="Payment">{(place.payment||[]).map(a=><Tag key={a}>{a}</Tag>)}</Section>}
           {(place.dining||[]).length>0 && <Section label="Dining">{(place.dining||[]).map(a=><Tag key={a}>{a}</Tag>)}</Section>}
@@ -106,30 +123,22 @@ export default function DetailPanel({place, onClose, onDelete, onEdit, onRefresh
         </div>
       </div>
 
-      {/* Known for — replaces Reviews */}
-      {popular.length>0 && <div style={{marginTop:12,paddingTop:12,borderTop:`1px solid ${C.borderLight}`}}>
-        <div style={{fontSize:11,color:C.textLight,fontWeight:500,textTransform:"uppercase",letterSpacing:".4px",marginBottom:6}}>Known for</div>
-        {place.editorial_summary && <div style={{fontSize:13,color:C.textMid,lineHeight:1.5,marginBottom:8,fontStyle:"italic"}}>
-          "{place.editorial_summary}"
-        </div>}
-        <div style={{display:"flex",gap:5,flexWrap:"wrap"}}>
-          {popular.filter(p=>p!==place.editorial_summary).map((p,i)=><Tag key={i} variant="bl">{p}</Tag>)}
-        </div>
-      </div>}
-
-      {/* Nearby Transport */}
-      {(transport && (transport.stations||[]).length > 0) && <div style={{marginTop:12,paddingTop:12,borderTop:`1px solid ${C.borderLight}`}}>
-        <div style={{fontSize:11,color:C.textLight,fontWeight:500,textTransform:"uppercase",letterSpacing:".4px",marginBottom:6}}>Nearby Transport</div>
-        <div style={{display:"flex",flexDirection:"column",gap:4}}>
-          {(transport.stations||[]).map((s,i)=><div key={i} style={{display:"flex",alignItems:"center",gap:8,fontSize:13,color:C.textMid,padding:"4px 0"}}>
-            <Icon name="transit" size={15} color={C.textMid} sw={1.5}/>
-            <span style={{fontWeight:500,color:C.text}}>{s.name}</span>
-            <span style={{fontSize:12,color:C.textLight}}>· {s.distance}</span>
-            {s.type && <Tag>{s.type}</Tag>}
+      {/* Getting there — grouped transport */}
+      {transport && (transport.groups||[]).length>0 && <div style={{marginTop:12,paddingTop:12,borderTop:`1px solid ${C.borderLight}`}}>
+        <div style={{fontSize:11,color:C.textLight,fontWeight:500,textTransform:"uppercase",letterSpacing:".4px",marginBottom:8}}>Getting there</div>
+        <div style={{display:"grid",gridTemplateColumns:`repeat(${Math.min((transport.groups||[]).length,3)},1fr)`,gap:10}}>
+          {(transport.groups||[]).map(g=><div key={g.category} style={{background:C.surface,borderRadius:8,padding:"10px 12px"}}>
+            <div style={{fontSize:12,fontWeight:500,color:C.text,marginBottom:6,display:"flex",alignItems:"center",gap:4}}>
+              <span style={{fontSize:15}}>{TRANSIT_ICONS[g.category]||"🚏"}</span> {g.category}
+            </div>
+            {g.stations.map((s,i)=><div key={i} style={{fontSize:12,color:C.textMid,padding:"3px 0",display:"flex",justifyContent:"space-between"}}>
+              <span style={{fontWeight:500,color:C.text}}>{s.name}</span>
+              <span style={{color:C.textLight,fontSize:11,flexShrink:0,marginLeft:6}}>{s.distance}</span>
+            </div>)}
           </div>)}
         </div>
       </div>}
-      {loadingTransport && <div style={{marginTop:12,paddingTop:12,borderTop:`1px solid ${C.borderLight}`,fontSize:12,color:C.textLight}}>Loading transport info...</div>}
+      {loadingExtra && !highlights && <div style={{fontSize:12,color:C.textLight,marginTop:12}}>Loading details...</div>}
 
       {/* Notes */}
       {place.notes && <div style={{fontSize:13,color:C.textMid,background:C.surface,padding:"10px 14px",borderRadius:8,lineHeight:1.5,marginTop:10}}>
@@ -140,7 +149,6 @@ export default function DetailPanel({place, onClose, onDelete, onEdit, onRefresh
         <Icon name="calendar" size={14} color={C.textLight}/> Saved on {place.saved}
       </div>
 
-      {/* Delete */}
       <button onClick={()=>{if(confirm(`Delete "${place.name}"?`))onDelete?.(place.id);}}
         style={{display:"flex",alignItems:"center",gap:8,padding:"10px 14px",borderRadius:8,border:"none",background:"none",color:C.red,fontSize:13,cursor:"pointer",marginTop:4,transition:"background .15s"}}
         onMouseEnter={e=>{e.currentTarget.style.background="#fce8e6";}}

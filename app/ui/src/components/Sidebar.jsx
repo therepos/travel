@@ -81,22 +81,6 @@ export default function Sidebar({places, view, switchView, expandedIntent, setEx
       </div>;
     })}
 
-    <div style={{height:1,background:C.borderLight,margin:"6px 20px"}}/>
-
-    <div style={{fontSize:11,color:C.textLight,textTransform:"uppercase",letterSpacing:".4px",padding:"8px 20px 4px",fontWeight:500}}>Nav</div>
-    <button onClick={()=>{switchView("places");clearFilters();}}
-      style={{...S.item,...(view==="places"&&!filterIntent?S.active:{})}}>
-      <Icon name="layers" size={20} sw={1.5} color={view==="places"&&!filterIntent?C.blue:C.textMid}
-        fill={view==="places"&&!filterIntent?C.blue:"none"}/>
-      All places<span style={{marginLeft:"auto",fontSize:12,color:C.textLight}}>{places.length}</span>
-    </button>
-    <button onClick={()=>switchView("routes")}
-      style={{...S.item,...(view==="routes"?S.active:{})}}>
-      <Icon name="route" size={20} sw={1.5} color={view==="routes"?C.blue:C.textMid}
-        fill={view==="routes"?C.blue:"none"}/>
-      Routes<span style={{marginLeft:"auto",fontSize:12,color:C.textLight}}>{routes.length}</span>
-    </button>
-
     {Object.keys(regions).length > 0 && <>
       <div style={{height:1,background:C.borderLight,margin:"6px 20px"}}/>
       <div style={{fontSize:11,color:C.textLight,textTransform:"uppercase",letterSpacing:".4px",padding:"8px 20px 4px",fontWeight:500}}>Region</div>
