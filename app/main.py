@@ -437,6 +437,13 @@ def build_route_url(places):
     if len(places)>2: url+="&waypoints="+"|".join(f"{p['lat']},{p['lng']}" for p in places[1:-1])
     return url
 
+def _travel_estimate(lat1,lng1,lat2,lng2):
+    """Estimate travel duration from haversine distance. Returns dict with driving/walking mins."""
+    d=_haversine(lat1,lng1,lat2,lng2)
+    drive_min=max(1,round(d/500))   # ~30km/h avg urban driving
+    walk_min=max(1,round(d/80))     # ~5km/h walking
+    return {"distance":_fmt_dist(d),"distance_m":d,"drive_min":drive_min,"walk_min":walk_min}
+
 @app.get("/api/routes")
 def list_routes():
     conn=get_db(); rows=conn.execute("SELECT * FROM routes ORDER BY updated DESC").fetchall()
@@ -447,7 +454,16 @@ def list_routes():
             ph=",".join("?"*len(r["stops"]))
             pr=conn.execute(f"SELECT id,name,photo,lat,lng,country,city,hours,place_type FROM places WHERE id IN ({ph})",r["stops"]).fetchall()
             pm={dict(p)["id"]:dict(p) for p in pr}
-            r["stop_details"]=[pm[sid] for sid in r["stops"] if sid in pm]
+            details=[]
+            for i,sid in enumerate(r["stops"]):
+                if sid not in pm: continue
+                stop=dict(pm[sid])
+                if i>0:
+                    prev_sid=r["stops"][i-1]
+                    if prev_sid in pm:
+                        stop["travel_from_prev"]=_travel_estimate(pm[prev_sid]["lat"],pm[prev_sid]["lng"],stop["lat"],stop["lng"])
+                details.append(stop)
+            r["stop_details"]=details
         else: r["stop_details"]=[]
         routes.append(r)
     conn.close(); return {"routes":routes}

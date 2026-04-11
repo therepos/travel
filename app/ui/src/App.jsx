@@ -48,12 +48,12 @@ export default function App() {
     return () => window.removeEventListener("resize",check);
   }, []);
 
-  // Back button: push history state when opening detail views
+  // Back button: push history state when opening detail views or search
   useEffect(() => {
     if (!isMobile) return;
-    const hasOverlay = mobileDetail || mobileRouteDetail || routePlanner;
+    const hasOverlay = mobileDetail || mobileRouteDetail || routePlanner || searchOpen;
     if (hasOverlay) { history.pushState({overlay:true},""); }
-  }, [isMobile, !!mobileDetail, !!mobileRouteDetail, !!routePlanner]);
+  }, [isMobile, !!mobileDetail, !!mobileRouteDetail, !!routePlanner, searchOpen]);
 
   useEffect(() => {
     if (!isMobile) return;
@@ -61,10 +61,11 @@ export default function App() {
       if (routePlanner) { setRoutePlanner(null); }
       else if (mobileRouteDetail) { setMobileRouteDetail(null); }
       else if (mobileDetail) { setMobileDetail(null); }
+      else if (searchOpen) { setSearchOpen(false); setSearchQuery(""); }
     };
     window.addEventListener("popstate",onPop);
     return () => window.removeEventListener("popstate",onPop);
-  }, [isMobile, mobileDetail, mobileRouteDetail, routePlanner]);
+  }, [isMobile, mobileDetail, mobileRouteDetail, routePlanner, searchOpen]);
 
   const load = useCallback(() => {
     api("/places").then(d=>{setPlaces(d.places||[]);setLoading(false);}).catch(()=>setLoading(false));
@@ -212,14 +213,16 @@ export default function App() {
   // ── MOBILE LAYOUT ──
   if (isMobile) return <div ref={containerRef} style={{width:"100%",height:"100dvh",fontFamily:FONT,color:C.text,display:"flex",flexDirection:"column",background:C.bg,position:"relative"}}>
     {/* Search bar */}
-    <div style={{margin:"10px 16px 0",padding:"0 6px 0 14px",height:48,background:C.surface,borderRadius:24,display:"flex",alignItems:"center",gap:10,flexShrink:0,border:searchOpen?`1.5px solid ${C.blue}`:"1.5px solid transparent"}}
-      onClick={()=>!searchOpen&&setSearchOpen(true)}>
-      <Icon name="search" size={20} color={searchOpen?C.blue:C.textLight}/>
-      {searchOpen ? <input value={searchQuery} onChange={e=>setSearchQuery(e.target.value)} autoFocus
-        placeholder="Search saved or add new..." style={{flex:1,border:"none",background:"none",fontSize:16,color:C.text,outline:"none",fontFamily:FONT}}/>
-      : <span style={{flex:1,fontSize:16,color:C.textLight}}>Search your places</span>}
-      {searchOpen && <button onClick={e=>{e.stopPropagation();setSearchOpen(false);setSearchQuery("");}} style={{background:"none",border:"none",padding:4,cursor:"pointer"}}><Icon name="x" size={18} color={C.textLight}/></button>}
-      {!searchOpen && <div style={{width:32,height:32,borderRadius:"50%",background:C.blue,color:"#fff",display:"flex",alignItems:"center",justifyContent:"center",fontSize:13,fontWeight:500}}>R</div>}
+    <div style={{margin:"10px 16px 0",display:"flex",gap:8,alignItems:"center",flexShrink:0}}>
+      <div style={{flex:1,padding:"0 6px 0 14px",height:48,background:C.surface,borderRadius:24,display:"flex",alignItems:"center",gap:10,border:searchOpen?`1.5px solid ${C.blue}`:"1.5px solid transparent"}}
+        onClick={()=>!searchOpen&&setSearchOpen(true)}>
+        <Icon name="search" size={20} color={searchOpen?C.blue:C.textLight}/>
+        {searchOpen ? <input value={searchQuery} onChange={e=>setSearchQuery(e.target.value)} autoFocus
+          placeholder="Search saved or add new..." style={{flex:1,border:"none",background:"none",fontSize:16,color:C.text,outline:"none",fontFamily:FONT}}/>
+        : <span style={{flex:1,fontSize:16,color:C.textLight}}>Search your places</span>}
+        {searchOpen && <button onClick={e=>{e.stopPropagation();setSearchOpen(false);setSearchQuery("");}} style={{background:"none",border:"none",padding:4,cursor:"pointer"}}><Icon name="x" size={18} color={C.textLight}/></button>}
+      </div>
+      {!searchOpen && <div onClick={()=>switchView("settings")} style={{width:36,height:36,borderRadius:"50%",background:C.blue,color:"#fff",display:"flex",alignItems:"center",justifyContent:"center",fontSize:14,fontWeight:500,flexShrink:0,cursor:"pointer"}}>R</div>}
     </div>
 
     {searchOpen ? <SearchDropdown query={searchQuery} places={places} onSave={handleSave} onSelect={p=>{setSearchOpen(false);setSearchQuery("");handlePlaceClick(p);}} isMobile={true} onClose={()=>{setSearchOpen(false);setSearchQuery("");}}/> : <>
@@ -278,8 +281,11 @@ export default function App() {
       </div>
       : <SettingsPage isMobile={true}/>}
 
-      {/* FAB */}
+      {/* FAB — consistent across places and routes */}
       {view==="places" && !bulkMode && <button onClick={()=>setSearchOpen(true)} style={{position:"absolute",bottom:72,right:14,width:56,height:56,borderRadius:16,background:C.blue,color:"#fff",border:"none",display:"flex",alignItems:"center",justifyContent:"center",zIndex:4,boxShadow:"0 2px 8px rgba(26,115,232,0.35)",cursor:"pointer"}}>
+        <Icon name="plus" size={22} color="#fff" sw={2.5}/>
+      </button>}
+      {view==="routes" && !bulkMode && <button onClick={()=>openRoutePlanner([])} style={{position:"absolute",bottom:72,right:14,width:56,height:56,borderRadius:16,background:C.blue,color:"#fff",border:"none",display:"flex",alignItems:"center",justifyContent:"center",zIndex:4,boxShadow:"0 2px 8px rgba(26,115,232,0.35)",cursor:"pointer"}}>
         <Icon name="plus" size={22} color="#fff" sw={2.5}/>
       </button>}
 

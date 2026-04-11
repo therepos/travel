@@ -74,16 +74,32 @@ export default function RouteDetail({route, onClose, onPlaceClick, onEdit, onDel
 
     {/* Timeline */}
     <div style={{flex:1,overflowY:"auto",padding:isMobile?"10px 20px":"8px 20px"}}>
-      {stops.map((s,i) => <div key={s.id||i} style={{display:"flex",gap:14,alignItems:"stretch"}}>
-        <div style={{display:"flex",flexDirection:"column",alignItems:"center",width:22,flexShrink:0,paddingTop:14}}>
-          <div style={{width:14,height:14,borderRadius:"50%",background:i===stops.length-1?C.red:C.blue,flexShrink:0}}/>
-          {i<stops.length-1 && <div style={{width:2,background:C.border,flex:1,margin:"4px 0"}}/>}
-        </div>
-        <div style={{flex:1,padding:isMobile?"12px 0":"10px 0",borderBottom:i<stops.length-1?`1px solid ${C.borderLight}`:"none",cursor:"pointer"}}
-          onClick={()=>onPlaceClick?.(s)}>
-          <div style={{fontSize:isMobile?17:14,fontWeight:isMobile?400:500}}>{s.name}</div>
-          <div style={{fontSize:isMobile?14:12,color:C.textMid}}>{s.place_type||s.city||""}</div>
-          {s.hours && <div style={{fontSize:isMobile?14:12,color:C.textMid,marginTop:3}}>{s.hours.split("|")[0]?.trim()}</div>}
+      {stops.map((s,i) => <div key={s.id||i}>
+        {/* Travel duration from previous stop */}
+        {i>0 && s.travel_from_prev && <div style={{display:"flex",gap:14,alignItems:"stretch"}}>
+          <div style={{display:"flex",flexDirection:"column",alignItems:"center",width:22,flexShrink:0}}>
+            <div style={{width:2,background:C.border,flex:1}}/>
+          </div>
+          <div style={{display:"flex",alignItems:"center",gap:6,padding:isMobile?"6px 0":"4px 0",fontSize:isMobile?13:12,color:C.textLight}}>
+            <Icon name="route" size={isMobile?14:12} color={C.textLight} sw={1.5} fill="none"/>
+            <span>{s.travel_from_prev.distance}</span>
+            <span style={{color:C.border}}>·</span>
+            <span>{s.travel_from_prev.drive_min} min drive</span>
+            <span style={{color:C.border}}>·</span>
+            <span>{s.travel_from_prev.walk_min} min walk</span>
+          </div>
+        </div>}
+        <div style={{display:"flex",gap:14,alignItems:"stretch"}}>
+          <div style={{display:"flex",flexDirection:"column",alignItems:"center",width:22,flexShrink:0,paddingTop:14}}>
+            <div style={{width:14,height:14,borderRadius:"50%",background:i===stops.length-1?C.red:C.blue,flexShrink:0}}/>
+            {i<stops.length-1 && <div style={{width:2,background:C.border,flex:1,margin:"4px 0"}}/>}
+          </div>
+          <div style={{flex:1,padding:isMobile?"12px 0":"10px 0",borderBottom:i<stops.length-1?`1px solid ${C.borderLight}`:"none",cursor:"pointer"}}
+            onClick={()=>onPlaceClick?.(s)}>
+            <div style={{fontSize:isMobile?17:14,fontWeight:isMobile?400:500}}>{s.name}</div>
+            <div style={{fontSize:isMobile?14:12,color:C.textMid}}>{s.place_type||s.city||""}</div>
+            {s.hours && <div style={{fontSize:isMobile?14:12,color:C.textMid,marginTop:3}}>{s.hours.split("|")[0]?.trim()}</div>}
+          </div>
         </div>
       </div>)}
     </div>
