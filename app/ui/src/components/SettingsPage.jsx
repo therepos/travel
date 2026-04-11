@@ -177,5 +177,61 @@ export default function SettingsPage({isMobile}) {
     <div style={{fontSize:m?13:12,color:C.textLight,textAlign:"center",padding:"16px 0"}}>
       Travel v4.0 · Self-hosted · MIT License
     </div>
+
+    {/* About & Category Reference */}
+    <div style={S.section}>
+      <div style={S.sectionTitle}>About & Categories</div>
+      <div style={{fontSize:m?14:13,color:C.textMid,lineHeight:1.6,marginBottom:12}}>
+        Travel auto-classifies places into categories based on Google Places types. Categories with 0 places are hidden from the sidebar.
+      </div>
+
+      <div style={{marginBottom:12}}>
+        <div style={{fontSize:m?13:12,fontWeight:500,color:C.text,marginBottom:6}}>Intent Categories</div>
+        <div style={{display:"grid",gridTemplateColumns:m?"1fr":"1fr 1fr",gap:6}}>
+          {[
+            {icon:"eat",label:"Eat",desc:"Restaurants, cafes, bakeries, food courts, meal delivery"},
+            {icon:"drink",label:"Drink",desc:"Bars, pubs, night clubs, liquor stores"},
+            {icon:"see",label:"See",desc:"Museums, galleries, churches, mosques, temples, attractions"},
+            {icon:"do",label:"Do",desc:"Parks, beaches, zoos, aquariums, cinemas, stadiums, gyms"},
+            {icon:"shop",label:"Shop",desc:"Malls, clothing, books, electronics, furniture stores"},
+            {icon:"goout",label:"Go out",desc:"Social venues, night clubs, entertainment"},
+            {icon:"stay",label:"Stay",desc:"Hotels, lodging, hostels, RV parks"},
+            {icon:"services",label:"Services",desc:"Spas, salons, laundry, doctors, pharmacies, banks, ATMs"},
+          ].map(c=><div key={c.label} style={{display:"flex",gap:8,alignItems:"flex-start",padding:m?"8px 10px":"6px 8px",background:C.surface,borderRadius:8}}>
+            <Icon name={c.icon} size={m?18:16} color={C.blue} sw={1.5}/>
+            <div><div style={{fontSize:m?13:12,fontWeight:500}}>{c.label}</div>
+            <div style={{fontSize:m?12:11,color:C.textLight,lineHeight:1.4}}>{c.desc}</div></div>
+          </div>)}
+        </div>
+      </div>
+
+      <div style={{marginBottom:12}}>
+        <div style={{fontSize:m?13:12,fontWeight:500,color:C.text,marginBottom:6}}>Cuisine Sub-types (Eat only)</div>
+        <div style={{display:"flex",gap:4,flexWrap:"wrap"}}>
+          {["Japanese","Chinese","Korean","Thai","Vietnamese","Indian","Mexican","Italian","French","Greek","Spanish","Turkish","Lebanese","American","German","Indonesian","Malaysian","Filipino","Mediterranean","Middle Eastern","Seafood","BBQ","Steakhouse","Vegan","Vegetarian"].map(c=>
+            <span key={c} style={{fontSize:m?12:11,padding:"3px 8px",borderRadius:6,background:"#fef7e0",color:"#b06000"}}>{c}</span>
+          )}
+        </div>
+      </div>
+
+      <div>
+        <div style={{fontSize:m?13:12,fontWeight:500,color:C.text,marginBottom:6}}>Sub-types (Non-eat)</div>
+        <div style={{display:"flex",gap:4,flexWrap:"wrap"}}>
+          {["Cafe","Bakery","Bar","Club","Museum","Gallery","Church","Mosque","Temple","Attraction","Park","Nature","Beach","Zoo","Aquarium","Theme park","Cinema","Stadium","Gym","Mall","Fashion","Books","Hotel","Spa","Beauty salon","Dentist","Doctor","Pharmacy"].map(c=>
+            <span key={c} style={{fontSize:m?12:11,padding:"3px 8px",borderRadius:6,background:"#e6f4ea",color:"#137333"}}>{c}</span>
+          )}
+        </div>
+      </div>
+
+      <div style={{marginTop:12}}>
+        <div style={{fontSize:m?13:12,fontWeight:500,color:C.text,marginBottom:6}}>Tag Colors</div>
+        <div style={{display:"flex",gap:8,flexWrap:"wrap",fontSize:m?13:12}}>
+          <span style={{padding:"3px 10px",borderRadius:6,background:"#e6f4ea",color:"#137333"}}>● Auto tags (green)</span>
+          <span style={{padding:"3px 10px",borderRadius:6,background:"#fef7e0",color:"#b06000"}}>● Cuisine (amber)</span>
+          <span style={{padding:"3px 10px",borderRadius:6,background:C.purpleBg,color:C.purple}}>● User tags (purple)</span>
+          <span style={{padding:"3px 10px",borderRadius:6,background:C.blueBg,color:"#1967d2"}}>● Info (blue)</span>
+        </div>
+      </div>
+    </div>
   </div>;
 }

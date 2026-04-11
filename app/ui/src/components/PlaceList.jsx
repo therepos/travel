@@ -1,6 +1,6 @@
 import { C, Icon, Tag, Stars } from "../shared.jsx";
 
-export default function PlaceList({grouped, filtered, loading, selectedId, onPlaceClick, isMobile}) {
+export default function PlaceList({grouped, filtered, loading, selectedId, onPlaceClick, isMobile, bulkMode, bulkSelected}) {
   if (loading) return <div style={{flex:1,display:"flex",alignItems:"center",justifyContent:"center",color:C.textLight,fontSize:14}}>Loading...</div>;
   if (filtered.length === 0) return <div style={{flex:1,display:"flex",alignItems:"center",justifyContent:"center",color:C.textLight,fontSize:14,padding:24,textAlign:"center"}}>No places yet. Tap + to save your first!</div>;
 
@@ -11,13 +11,18 @@ export default function PlaceList({grouped, filtered, loading, selectedId, onPla
         <span style={{fontSize:11,color:C.textLight,background:C.borderLight,padding:"1px 6px",borderRadius:8}}>{places.length}</span>
       </div>
       {places.map(p => {
-        const isSel = !isMobile && selectedId === p.id;
+        const isSel = !isMobile && !bulkMode && selectedId === p.id;
+        const isBulkSel = bulkMode && bulkSelected?.has(p.id);
         return <div key={p.id} onClick={()=>onPlaceClick(p)}
           style={{display:"flex",alignItems:"center",gap:isMobile?12:12,padding:isMobile?"14px 16px":"10px 16px",
             cursor:"pointer",borderBottom:`1px solid ${C.borderLight}`,
-            background:isSel?C.blueBg:"transparent",transition:"background .1s"}}
-          onMouseEnter={e=>{if(!isSel)e.currentTarget.style.background=C.surface;}}
-          onMouseLeave={e=>{if(!isSel)e.currentTarget.style.background="transparent";}}>
+            background:isBulkSel?C.blueBg:isSel?C.blueBg:"transparent",transition:"background .1s"}}
+          onMouseEnter={e=>{if(!isSel&&!isBulkSel)e.currentTarget.style.background=C.surface;}}
+          onMouseLeave={e=>{if(!isSel&&!isBulkSel)e.currentTarget.style.background="transparent";}}>
+          {bulkMode && <div style={{width:22,height:22,borderRadius:4,border:`2px solid ${isBulkSel?C.blue:C.border}`,
+            background:isBulkSel?C.blue:"#fff",display:"flex",alignItems:"center",justifyContent:"center",flexShrink:0,transition:"all .15s"}}>
+            {isBulkSel && <Icon name="check" size={14} color="#fff" sw={2.5}/>}
+          </div>}
           <div style={{width:isMobile?72:48,height:isMobile?72:48,borderRadius:isMobile?12:8,flexShrink:0,background:C.border,overflow:"hidden"}}>
             {p.photo && <img src={p.photo} alt="" style={{width:"100%",height:"100%",objectFit:"cover"}} onError={e=>{e.target.style.display="none"}}/>}
           </div>
@@ -33,7 +38,7 @@ export default function PlaceList({grouped, filtered, loading, selectedId, onPla
               {(p.tags||[]).slice(0,1).map(t=><Tag key={t} variant="pp">{t}</Tag>)}
             </div>
           </div>
-          {isMobile && <Icon name="chevron" size={16} color={C.border}/>}
+          {isMobile && !bulkMode && <Icon name="chevron" size={16} color={C.border}/>}
         </div>;
       })}
     </div>)}

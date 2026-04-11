@@ -27,6 +27,8 @@ export default function App() {
   const [searchQuery,setSearchQuery] = useState("");
   const [mobileDetail,setMobileDetail] = useState(null);
   const [mobileRouteDetail,setMobileRouteDetail] = useState(null);
+  const [bulkMode,setBulkMode] = useState(false);
+  const [bulkSelected,setBulkSelected] = useState(new Set());
 
   // Sidebar filter state
   const [expandedIntent,setExpandedIntent] = useState(null);
@@ -145,6 +147,35 @@ export default function App() {
     } catch(e) { console.error(e); }
   };
 
+  const handleBulkDelete = async () => {
+    const ids = [...bulkSelected];
+    const type = view === "routes" ? "routes" : "places";
+    const count = ids.length;
+    if (!confirm(`Delete ${count} ${type}?`)) return;
+    try {
+      for (const id of ids) {
+        await api(`/${type}/${id}`, {method:"DELETE"});
+      }
+      if (type === "places") {
+        setPlaces(prev => prev.filter(p => !bulkSelected.has(p.id)));
+        if (bulkSelected.has(selectedId)) setSelectedId(null);
+      } else {
+        setRoutes(prev => prev.filter(r => !bulkSelected.has(r.id)));
+        if (bulkSelected.has(routeDetailId)) setRouteDetailId(null);
+      }
+    } catch(e) { console.error(e); }
+    setBulkSelected(new Set());
+    setBulkMode(false);
+  };
+
+  const toggleBulkItem = id => {
+    setBulkSelected(prev => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id); else next.add(id);
+      return next;
+    });
+  };
+
   const handleRouteSaved = async () => {
     try { const d = await api("/routes"); setRoutes(d.routes||[]); } catch(e) {}
     setRoutePlanner(null); setView("routes");
@@ -153,6 +184,7 @@ export default function App() {
   const switchView = v => {
     setView(v); setSelectedId(null); setRouteDetailId(null);
     setRoutePlanner(null); setSearchOpen(false);
+    setBulkMode(false); setBulkSelected(new Set());
   };
 
   const openRoutePlanner = (initialStops=[], editingRoute=null) => {
@@ -173,7 +205,7 @@ export default function App() {
   if (isMobile && mobileRouteDetail) return <div style={{width:"100%",height:"100dvh",fontFamily:FONT,color:C.text,display:"flex",flexDirection:"column",background:C.bg}}>
     <RouteDetail route={mobileRouteDetail} onClose={()=>setMobileRouteDetail(null)}
       onPlaceClick={p=>{setMobileRouteDetail(null);setMobileDetail(p);}}
-      onEdit={r=>openRoutePlanner(r.stops,r)} places={places} isMobile={true}/>
+      onEdit={r=>openRoutePlanner(r.stops,r)} onDelete={handleDeleteRoute} places={places} isMobile={true}/>
     <MobileNav view={view} onNav={v=>{setMobileRouteDetail(null);switchView(v);}}/>
   </div>;
 
@@ -220,17 +252,38 @@ export default function App() {
         </button>
       </div>}
 
+      {/* Bulk mode bar for mobile */}
+      {(view==="places"||view==="routes") && !bulkMode && <div style={{display:"flex",justifyContent:"flex-end",padding:"4px 16px 0"}}>
+        <button onClick={()=>{setBulkMode(true);setBulkSelected(new Set());}}
+          style={{display:"flex",alignItems:"center",gap:4,padding:"5px 12px",borderRadius:16,background:"none",border:`1px solid ${C.border}`,fontSize:12,fontWeight:500,color:C.textMid,cursor:"pointer",fontFamily:"inherit"}}>
+          <Icon name="selectAll" size={14} color={C.textMid} sw={1.5}/> Select
+        </button>
+      </div>}
+      {bulkMode && <div style={{display:"flex",alignItems:"center",gap:8,padding:"6px 16px",background:C.blueBg,flexShrink:0}}>
+        <span style={{fontSize:13,color:C.blue,fontWeight:500,flex:1}}>{bulkSelected.size} selected</span>
+        <button onClick={handleBulkDelete} disabled={bulkSelected.size===0}
+          style={{display:"flex",alignItems:"center",gap:4,padding:"6px 12px",borderRadius:16,background:bulkSelected.size>0?"#fce8e6":"transparent",border:`1px solid ${bulkSelected.size>0?C.red:C.border}`,fontSize:12,fontWeight:500,color:bulkSelected.size>0?C.red:C.textLight,cursor:bulkSelected.size>0?"pointer":"default",fontFamily:"inherit"}}>
+          <Icon name="trash" size={14} color={bulkSelected.size>0?C.red:C.textLight} sw={1.5}/> Delete
+        </button>
+        <button onClick={()=>{setBulkMode(false);setBulkSelected(new Set());}}
+          style={{padding:"6px 12px",borderRadius:16,background:"none",border:`1px solid ${C.border}`,fontSize:12,fontWeight:500,color:C.textMid,cursor:"pointer",fontFamily:"inherit"}}>
+          Cancel
+        </button>
+      </div>}
+
       {/* Content */}
       {view==="places" ? <PlaceList grouped={grouped} filtered={filtered} loading={loading}
-        selectedId={null} onPlaceClick={handlePlaceClick} isMobile={true}/>
+        selectedId={null} onPlaceClick={bulkMode ? (p=>toggleBulkItem(p.id)) : handlePlaceClick} isMobile={true}
+        bulkMode={bulkMode} bulkSelected={bulkSelected}/>
       : view==="routes" ? <div style={{flex:1,overflowY:"auto",padding:"8px 12px"}}>
-        <RouteList routes={routes} onRouteClick={handleRouteClick} onDelete={handleDeleteRoute}
-          onNew={()=>openRoutePlanner([])} isMobile={true} selectedId={null}/>
+        <RouteList routes={routes} onRouteClick={bulkMode ? (r=>toggleBulkItem(r.id)) : handleRouteClick} onDelete={handleDeleteRoute}
+          onNew={()=>openRoutePlanner([])} isMobile={true} selectedId={null}
+          bulkMode={bulkMode} bulkSelected={bulkSelected}/>
       </div>
       : <SettingsPage isMobile={true}/>}
 
       {/* FAB */}
-      {view==="places" && <button onClick={()=>setSearchOpen(true)} style={{position:"absolute",bottom:72,right:14,width:56,height:56,borderRadius:16,background:C.blue,color:"#fff",border:"none",display:"flex",alignItems:"center",justifyContent:"center",zIndex:4,boxShadow:"0 2px 8px rgba(26,115,232,0.35)",cursor:"pointer"}}>
+      {view==="places" && !bulkMode && <button onClick={()=>setSearchOpen(true)} style={{position:"absolute",bottom:72,right:14,width:56,height:56,borderRadius:16,background:C.blue,color:"#fff",border:"none",display:"flex",alignItems:"center",justifyContent:"center",zIndex:4,boxShadow:"0 2px 8px rgba(26,115,232,0.35)",cursor:"pointer"}}>
         <Icon name="plus" size={22} color="#fff" sw={2.5}/>
       </button>}
 
@@ -297,16 +350,35 @@ export default function App() {
               </button>
             </> : <span>All places · {filtered.length}</span>}
           </div>
-          <button onClick={()=>setSearchOpen(true)} style={{display:"flex",alignItems:"center",gap:5,padding:"6px 14px",borderRadius:16,background:C.blue,color:"#fff",border:"none",fontSize:13,fontWeight:500}}>
+          {(view === "places" || view === "routes") && !bulkMode && <button onClick={()=>{setBulkMode(true);setBulkSelected(new Set());}}
+            style={{display:"flex",alignItems:"center",gap:4,padding:"6px 10px",borderRadius:16,background:"none",border:`1px solid ${C.border}`,fontSize:12,fontWeight:500,color:C.textMid,cursor:"pointer",fontFamily:"inherit",transition:"all .15s"}}
+            onMouseEnter={e=>{e.currentTarget.style.background=C.surface;}}
+            onMouseLeave={e=>{e.currentTarget.style.background="transparent";}}>
+            <Icon name="selectAll" size={14} color={C.textMid} sw={1.5}/> Select
+          </button>}
+          {bulkMode && <>
+            <span style={{fontSize:12,color:C.blue,fontWeight:500}}>{bulkSelected.size} selected</span>
+            <button onClick={handleBulkDelete} disabled={bulkSelected.size===0}
+              style={{display:"flex",alignItems:"center",gap:4,padding:"6px 10px",borderRadius:16,background:bulkSelected.size>0?"#fce8e6":"transparent",border:`1px solid ${bulkSelected.size>0?C.red:C.border}`,fontSize:12,fontWeight:500,color:bulkSelected.size>0?C.red:C.textLight,cursor:bulkSelected.size>0?"pointer":"default",fontFamily:"inherit"}}>
+              <Icon name="trash" size={14} color={bulkSelected.size>0?C.red:C.textLight} sw={1.5}/> Delete
+            </button>
+            <button onClick={()=>{setBulkMode(false);setBulkSelected(new Set());}}
+              style={{padding:"6px 10px",borderRadius:16,background:"none",border:`1px solid ${C.border}`,fontSize:12,fontWeight:500,color:C.textMid,cursor:"pointer",fontFamily:"inherit"}}>
+              Cancel
+            </button>
+          </>}
+          {!bulkMode && <button onClick={()=>setSearchOpen(true)} style={{display:"flex",alignItems:"center",gap:5,padding:"6px 14px",borderRadius:16,background:C.blue,color:"#fff",border:"none",fontSize:13,fontWeight:500}}>
             <Icon name="plus" size={14} color="#fff" sw={2.5}/> Add
-          </button>
+          </button>}
         </div>
 
         {view === "places" ? <PlaceList grouped={grouped} filtered={filtered} loading={loading}
-          selectedId={selectedId} onPlaceClick={handlePlaceClick} isMobile={false}/>
+          selectedId={selectedId} onPlaceClick={bulkMode ? (p=>toggleBulkItem(p.id)) : handlePlaceClick} isMobile={false}
+          bulkMode={bulkMode} bulkSelected={bulkSelected}/>
         : view === "routes" ? <div style={{flex:1,overflowY:"auto",padding:"8px 0"}}>
-          <RouteList routes={routes} onRouteClick={handleRouteClick} onDelete={handleDeleteRoute}
-            onNew={()=>openRoutePlanner([])} isMobile={false} selectedId={routeDetailId}/>
+          <RouteList routes={routes} onRouteClick={bulkMode ? (r=>toggleBulkItem(r.id)) : handleRouteClick} onDelete={handleDeleteRoute}
+            onNew={()=>openRoutePlanner([])} isMobile={false} selectedId={routeDetailId}
+            bulkMode={bulkMode} bulkSelected={bulkSelected}/>
         </div>
         : null}
       </div>
@@ -320,7 +392,7 @@ export default function App() {
           onEdit={p=>setEditPlace(p)} onRefresh={handleRefresh} onShare={doShare}/>
       : view === "routes" && routeDetail ? <RouteDetail route={routeDetail}
           onClose={()=>setRouteDetailId(null)} onPlaceClick={p=>{setSelectedId(p.id);setRouteDetailId(null);setView("places");}}
-          onEdit={r=>openRoutePlanner(r.stops,r)} places={places}/>
+          onEdit={r=>openRoutePlanner(r.stops,r)} onDelete={handleDeleteRoute} places={places}/>
       : <div style={{flex:1,display:"flex",alignItems:"center",justifyContent:"center",color:C.border,fontSize:14,borderLeft:`1px solid ${C.border}`}}>
           {view==="places" ? "Select a place to view details" : "Select a route to view details"}
         </div>}

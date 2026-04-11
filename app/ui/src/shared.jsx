@@ -59,6 +59,10 @@ const paths = {
   upload:<><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></>,
   drag:<><line x1="8" y1="6" x2="16" y2="6"/><line x1="8" y1="12" x2="16" y2="12"/><line x1="8" y1="18" x2="16" y2="18"/></>,
   lock:<><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0110 0v4"/></>,
+  transit:<><path d="M4 17V6a4 4 0 014-4h8a4 4 0 014 4v11"/><rect x="6" y="10" width="12" height="7" rx="1"/><line x1="6" y1="13" x2="18" y2="13"/><circle cx="8.5" cy="15.5" r="1"/><circle cx="15.5" cy="15.5" r="1"/><line x1="8" y1="20" x2="6" y2="22"/><line x1="16" y1="20" x2="18" y2="22"/></>,
+  info:<><circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/></>,
+  selectAll:<><rect x="3" y="3" width="18" height="18" rx="2"/><polyline points="9 11 12 14 22 4"/></>,
+  help:<><circle cx="12" cy="12" r="10"/><path d="M9.09 9a3 3 0 015.83 1c0 2-3 3-3 3"/><line x1="12" y1="17" x2="12.01" y2="17"/></>,
   // Intent icons
   eat:<><circle cx="12" cy="12" r="3"/><path d="M12 1v4m0 14v4m-9-9h4m14 0h4"/></>,
   drink:<><path d="M8 2h8l-1 9H9L8 2z"/><path d="M12 11v7"/><path d="M8 18h8"/></>,
@@ -93,9 +97,14 @@ export function Tag({children, variant=""}) {
   return <span style={{fontSize:12,padding:"4px 10px",borderRadius:6,background:c.bg,color:c.color,whiteSpace:"nowrap"}}>{children}</span>;
 }
 
-export function ActionPill({icon, label, onClick}) {
-  return <button onClick={onClick} style={{display:"flex",alignItems:"center",gap:6,padding:"8px 16px",borderRadius:20,border:`1px solid ${C.border}`,fontSize:13,color:C.blue,fontWeight:500,background:"#fff",cursor:"pointer",fontFamily:"inherit"}}>
-    <Icon name={icon} size={18} color={C.blue}/>{label}
+export function ActionPill({icon, label, onClick, disabled}) {
+  return <button onClick={onClick} disabled={disabled}
+    onMouseEnter={e=>{if(!disabled){e.currentTarget.style.background=C.blueBg;e.currentTarget.style.borderColor=C.blue;}}}
+    onMouseLeave={e=>{if(!disabled){e.currentTarget.style.background="#fff";e.currentTarget.style.borderColor=C.border;}}}
+    onMouseDown={e=>{if(!disabled){e.currentTarget.style.background=C.blueLight;e.currentTarget.style.transform="scale(0.96)";}}}
+    onMouseUp={e=>{if(!disabled){e.currentTarget.style.background=C.blueBg;e.currentTarget.style.transform="scale(1)";}}}
+    style={{display:"flex",alignItems:"center",gap:6,padding:"8px 16px",borderRadius:20,border:`1px solid ${C.border}`,fontSize:13,color:disabled?C.textLight:C.blue,fontWeight:500,background:disabled?C.surface:"#fff",cursor:disabled?"default":"pointer",fontFamily:"inherit",transition:"all .15s ease",opacity:disabled?0.6:1}}>
+    <Icon name={icon} size={18} color={disabled?C.textLight:C.blue}/>{label}
   </button>;
 }
 

@@ -489,6 +489,56 @@ def delete_route(route_id:int):
     conn.execute("DELETE FROM routes WHERE id=?",(route_id,)); conn.commit(); conn.close()
     return {"ok":True}
 
+# ── Nearby Transit ────────────────────────────────────────
+import math
+
+def _haversine(lat1,lng1,lat2,lng2):
+    R=6371000
+    p=math.pi/180
+    a=math.sin((lat2-lat1)*p/2)**2+math.cos(lat1*p)*math.cos(lat2*p)*math.sin((lng2-lng1)*p/2)**2
+    return R*2*math.asin(math.sqrt(a))
+
+def _fmt_dist(m):
+    if m<1000: return f"{int(m)}m"
+    return f"{m/1000:.1f}km"
+
+TRANSIT_TYPES = ["subway_station","train_station","transit_station","light_rail_station","bus_station","taxi_stand"]
+
+@app.get("/api/nearby-transit")
+async def nearby_transit(lat:float,lng:float):
+    if not GOOGLE_API_KEY: return {"stations":[]}
+    headers={"Content-Type":"application/json","X-Goog-Api-Key":GOOGLE_API_KEY,
+             "X-Goog-FieldMask":"places.displayName,places.location,places.types,places.primaryTypeDisplayName"}
+    stations=[]
+    async with httpx.AsyncClient(timeout=10) as client:
+        for ttype in ["subway_station","train_station","transit_station","bus_station"]:
+            try:
+                resp=await client.post("https://places.googleapis.com/v1/places:searchNearby",
+                    json={"includedTypes":[ttype],"maxResultCount":3,
+                          "locationRestriction":{"circle":{"center":{"latitude":lat,"longitude":lng},"radius":1500.0}}},
+                    headers=headers)
+                if resp.status_code==200:
+                    for p in resp.json().get("places",[]):
+                        loc=p.get("location",{}); dn=p.get("displayName",{})
+                        name=dn.get("text","")
+                        plat=loc.get("latitude",0); plng=loc.get("longitude",0)
+                        dist=_haversine(lat,lng,plat,plng)
+                        ptdn=p.get("primaryTypeDisplayName",{})
+                        stype=ptdn.get("text","") if isinstance(ptdn,dict) else ""
+                        # Map type labels
+                        if not stype:
+                            types=p.get("types",[])
+                            if "subway_station" in types: stype="MRT/Metro"
+                            elif "train_station" in types: stype="Train"
+                            elif "bus_station" in types: stype="Bus Stop"
+                            elif "transit_station" in types: stype="Transit"
+                        if any(s["name"]==name for s in stations): continue
+                        stations.append({"name":name,"distance":_fmt_dist(dist),"distance_m":dist,"type":stype})
+            except: pass
+    stations.sort(key=lambda s:s["distance_m"])
+    for s in stations: del s["distance_m"]
+    return {"stations":stations[:6]}
+
 # ── Export ────────────────────────────────────────────────
 @app.get("/api/export/json")
 def export_json():
