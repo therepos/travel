@@ -1,6 +1,6 @@
 services:
   travel:
-    image: ghcr.io/therepos/db-travel:latest
+    image: ghcr.io/therepos/travel:latest
     container_name: travel
     restart: unless-stopped
     ports:
