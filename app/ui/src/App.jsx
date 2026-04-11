@@ -46,6 +46,24 @@ export default function App() {
     return () => window.removeEventListener("resize",check);
   }, []);
 
+  // Back button: push history state when opening detail views
+  useEffect(() => {
+    if (!isMobile) return;
+    const hasOverlay = mobileDetail || mobileRouteDetail || routePlanner;
+    if (hasOverlay) { history.pushState({overlay:true},""); }
+  }, [isMobile, !!mobileDetail, !!mobileRouteDetail, !!routePlanner]);
+
+  useEffect(() => {
+    if (!isMobile) return;
+    const onPop = () => {
+      if (routePlanner) { setRoutePlanner(null); }
+      else if (mobileRouteDetail) { setMobileRouteDetail(null); }
+      else if (mobileDetail) { setMobileDetail(null); }
+    };
+    window.addEventListener("popstate",onPop);
+    return () => window.removeEventListener("popstate",onPop);
+  }, [isMobile, mobileDetail, mobileRouteDetail, routePlanner]);
+
   const load = useCallback(() => {
     api("/places").then(d=>{setPlaces(d.places||[]);setLoading(false);}).catch(()=>setLoading(false));
     api("/routes").then(d=>setRoutes(d.routes||[])).catch(()=>{});
@@ -118,7 +136,7 @@ export default function App() {
       setPlaces(prev=>prev.map(p=>p.id===u.id?u:p));
       if (selectedId===id) setSelectedId(id);
       if (mobileDetail?.id===id) setMobileDetail(u);
-    } catch(e) { console.error(e); }
+    } catch(e) { console.error(e); throw e; }
   };
 
   const handleDeleteRoute = async id => {
@@ -139,15 +157,18 @@ export default function App() {
 
   const openRoutePlanner = (initialStops=[], editingRoute=null) => {
     setRoutePlanner({initialStops, editingRoute});
-    setSelectedId(null); setRouteDetailId(null);
+    setSelectedId(null); setRouteDetailId(null); setMobileRouteDetail(null);
   };
 
   // Mobile full-screen views
-  if (isMobile && mobileDetail) return <MobileDetail place={mobileDetail}
-    onClose={()=>setMobileDetail(null)} onDelete={handleDelete}
-    onEdit={p=>{setEditPlace(p);}} onRefresh={handleRefresh} onShare={doShare}
-    editModal={editPlace && <EditModal place={editPlace} onClose={()=>setEditPlace(null)} onSaved={handleEdited}/>}
-  />;
+  if (isMobile && mobileDetail) return <div style={{width:"100%",height:"100dvh",fontFamily:FONT,color:C.text,display:"flex",flexDirection:"column",background:C.bg}}>
+    <MobileDetail place={mobileDetail}
+      onClose={()=>setMobileDetail(null)} onDelete={handleDelete}
+      onEdit={p=>{setEditPlace(p);}} onRefresh={handleRefresh} onShare={doShare}
+      editModal={editPlace && <EditModal place={editPlace} onClose={()=>setEditPlace(null)} onSaved={handleEdited}/>}
+    />
+    <MobileNav view={view} onNav={v=>{setMobileDetail(null);switchView(v);}}/>
+  </div>;
 
   if (isMobile && mobileRouteDetail) return <div style={{width:"100%",height:"100dvh",fontFamily:FONT,color:C.text,display:"flex",flexDirection:"column",background:C.bg}}>
     <RouteDetail route={mobileRouteDetail} onClose={()=>setMobileRouteDetail(null)}
@@ -159,19 +180,19 @@ export default function App() {
   // ── MOBILE LAYOUT ──
   if (isMobile) return <div ref={containerRef} style={{width:"100%",height:"100dvh",fontFamily:FONT,color:C.text,display:"flex",flexDirection:"column",background:C.bg,position:"relative"}}>
     {/* Search bar */}
-    <div style={{margin:"8px 12px 0",padding:"0 4px 0 12px",height:42,background:C.surface,borderRadius:24,display:"flex",alignItems:"center",gap:10,flexShrink:0,border:searchOpen?`1.5px solid ${C.blue}`:"1.5px solid transparent"}}
+    <div style={{margin:"10px 16px 0",padding:"0 6px 0 14px",height:48,background:C.surface,borderRadius:24,display:"flex",alignItems:"center",gap:10,flexShrink:0,border:searchOpen?`1.5px solid ${C.blue}`:"1.5px solid transparent"}}
       onClick={()=>!searchOpen&&setSearchOpen(true)}>
-      <Icon name="search" size={18} color={searchOpen?C.blue:C.textLight}/>
+      <Icon name="search" size={20} color={searchOpen?C.blue:C.textLight}/>
       {searchOpen ? <input value={searchQuery} onChange={e=>setSearchQuery(e.target.value)} autoFocus
-        placeholder="Search saved or add new..." style={{flex:1,border:"none",background:"none",fontSize:15,color:C.text,outline:"none",fontFamily:FONT}}/>
-      : <span style={{flex:1,fontSize:15,color:C.textLight}}>Search your places</span>}
-      {searchOpen && <button onClick={e=>{e.stopPropagation();setSearchOpen(false);setSearchQuery("");}} style={{background:"none",border:"none",padding:4,cursor:"pointer"}}><Icon name="x" size={16} color={C.textLight}/></button>}
-      {!searchOpen && <div style={{width:28,height:28,borderRadius:"50%",background:C.blue,color:"#fff",display:"flex",alignItems:"center",justifyContent:"center",fontSize:12,fontWeight:500}}>R</div>}
+        placeholder="Search saved or add new..." style={{flex:1,border:"none",background:"none",fontSize:16,color:C.text,outline:"none",fontFamily:FONT}}/>
+      : <span style={{flex:1,fontSize:16,color:C.textLight}}>Search your places</span>}
+      {searchOpen && <button onClick={e=>{e.stopPropagation();setSearchOpen(false);setSearchQuery("");}} style={{background:"none",border:"none",padding:4,cursor:"pointer"}}><Icon name="x" size={18} color={C.textLight}/></button>}
+      {!searchOpen && <div style={{width:32,height:32,borderRadius:"50%",background:C.blue,color:"#fff",display:"flex",alignItems:"center",justifyContent:"center",fontSize:13,fontWeight:500}}>R</div>}
     </div>
 
     {searchOpen ? <SearchDropdown query={searchQuery} places={places} onSave={handleSave} onSelect={p=>{setSearchOpen(false);setSearchQuery("");handlePlaceClick(p);}} isMobile={true} onClose={()=>{setSearchOpen(false);setSearchQuery("");}}/> : <>
       {/* Intent chips */}
-      {view==="places" && <div style={{display:"flex",gap:6,padding:"8px 12px 4px",overflowX:"auto",flexShrink:0,WebkitOverflowScrolling:"touch"}}>
+      {view==="places" && <div style={{display:"flex",gap:8,padding:"10px 16px 4px",overflowX:"auto",flexShrink:0,WebkitOverflowScrolling:"touch"}}>
         <Chip label="All" active={!filterIntent} onClick={clearFilters}/>
         {INTENTS.map(i=><Chip key={i.key} label={i.label} active={filterIntent===i.key}
           onClick={()=>{if(filterIntent===i.key){clearFilters();}else{setFilterIntent(i.key);setFilterCuisine(null);setFilterSubType(null);setFilterTag(null);}}}/>)}
@@ -184,7 +205,7 @@ export default function App() {
           : [...new Set(places.filter(p=>p.intent===filterIntent&&p.sub_type).map(p=>p.sub_type))].sort();
         if (!subs.length) return null;
         const current = filterIntent==="eat" ? filterCuisine : filterSubType;
-        return <div style={{display:"flex",gap:6,padding:"4px 12px 2px",overflowX:"auto",flexShrink:0}}>
+        return <div style={{display:"flex",gap:8,padding:"4px 16px 2px",overflowX:"auto",flexShrink:0}}>
           {subs.map(s=><Chip key={s} label={s} active={current===s}
             onClick={()=>{if(filterIntent==="eat"){setFilterCuisine(filterCuisine===s?null:s);}else{setFilterSubType(filterSubType===s?null:s);}}}/>)}
         </div>;
@@ -209,7 +230,7 @@ export default function App() {
       : <SettingsPage isMobile={true}/>}
 
       {/* FAB */}
-      {view==="places" && <button onClick={()=>setSearchOpen(true)} style={{position:"absolute",bottom:64,right:12,width:52,height:52,borderRadius:16,background:C.blue,color:"#fff",border:"none",display:"flex",alignItems:"center",justifyContent:"center",zIndex:4,boxShadow:"0 2px 8px rgba(26,115,232,0.35)",cursor:"pointer"}}>
+      {view==="places" && <button onClick={()=>setSearchOpen(true)} style={{position:"absolute",bottom:72,right:14,width:56,height:56,borderRadius:16,background:C.blue,color:"#fff",border:"none",display:"flex",alignItems:"center",justifyContent:"center",zIndex:4,boxShadow:"0 2px 8px rgba(26,115,232,0.35)",cursor:"pointer"}}>
         <Icon name="plus" size={22} color="#fff" sw={2.5}/>
       </button>}
 
@@ -312,7 +333,7 @@ export default function App() {
 }
 
 function Chip({label, active, onClick}) {
-  return <button onClick={onClick} style={{padding:"5px 12px",borderRadius:8,fontSize:12,whiteSpace:"nowrap",
+  return <button onClick={onClick} style={{padding:"8px 16px",borderRadius:8,fontSize:14,whiteSpace:"nowrap",
     border:`1px solid ${active?C.blueBg:C.border}`,background:active?C.blueBg:"#fff",
     color:active?C.blue:C.textMid,fontWeight:500,cursor:"pointer",fontFamily:"inherit",flexShrink:0}}>
     {label}

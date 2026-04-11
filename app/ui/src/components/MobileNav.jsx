@@ -7,7 +7,7 @@ export default function MobileNav({view, onNav}) {
     {id:"settings", icon:"gear", label:"Settings"},
   ];
 
-  return <div style={{height:56,borderTop:`1px solid ${C.border}`,display:"flex",alignItems:"center",justifyContent:"space-around",flexShrink:0,background:"#fff",paddingBottom:6}}>
+  return <div style={{height:62,borderTop:`1px solid ${C.border}`,display:"flex",alignItems:"center",justifyContent:"space-around",flexShrink:0,background:"#fff",paddingBottom:8}}>
     {items.map(n => {
       const active = view === n.id;
       return <button key={n.id} onClick={()=>onNav(n.id)}

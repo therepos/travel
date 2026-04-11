@@ -1,10 +1,20 @@
+import { useState } from "react";
 import { C, Icon, Stars, Tag, ActionPill, InfoRow } from "../shared.jsx";
 
 export default function DetailPanel({place, onClose, onDelete, onEdit, onRefresh, onShare}) {
+  const [refreshing,setRefreshing] = useState(false);
+  const [toast,setToast] = useState(null);
   const mapsUrl = place.google_maps_url||`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(place.name)}`;
   const allTags = [...(place.tags||[])];
   const autoTags = [...(place.auto_tags||[])];
 
+  const doRefresh = async () => {
+    setRefreshing(true);
+    try { await onRefresh?.(place.id); setToast({type:"ok",msg:"Updated"}); }
+    catch(e) { setToast({type:"err",msg:e.message||"Refresh failed"}); }
+    setRefreshing(false);
+    setTimeout(()=>setToast(null),3000);
+  };
   return <div style={{flex:1,overflow:"auto",minWidth:0,borderLeft:`1px solid ${C.border}`,display:"flex",flexDirection:"column"}}>
     {/* Map */}
     <div style={{height:200,background:"#e8eaed",position:"relative",flexShrink:0}}>
@@ -34,8 +44,14 @@ export default function DetailPanel({place, onClose, onDelete, onEdit, onRefresh
         <ActionPill icon="pin" label="Directions" onClick={()=>window.open(mapsUrl,"_blank")}/>
         <ActionPill icon="share" label="Share" onClick={()=>onShare?.(place)}/>
         <ActionPill icon="edit" label="Edit" onClick={()=>onEdit?.(place)}/>
-        <ActionPill icon="refresh" label="Refresh" onClick={()=>onRefresh?.(place.id)}/>
+        <ActionPill icon="refresh" label={refreshing?"...":"Refresh"} onClick={doRefresh}/>
       </div>
+
+      {/* Toast */}
+      {toast && <div style={{padding:"6px 14px",borderRadius:16,fontSize:13,fontWeight:500,marginBottom:10,display:"inline-block",
+        background:toast.type==="ok"?"#e6f4ea":"#fce8e6",color:toast.type==="ok"?"#137333":"#c5221f"}}>
+        {toast.msg}
+      </div>}
 
       {/* Tags */}
       <div style={{display:"flex",gap:6,flexWrap:"wrap",marginBottom:10}}>

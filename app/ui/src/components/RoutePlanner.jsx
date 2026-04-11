@@ -102,11 +102,6 @@ export default function RoutePlanner({allPlaces, initialStops, editingRoute, onC
       {searching && <div style={{padding:10,textAlign:"center",fontSize:12,color:C.textLight}}>Searching...</div>}
     </div>}
 
-    {/* Map preview */}
-    {activeStops.length > 0 && <div style={{height:100,background:"#e8eaed",margin:"0 16px",borderRadius:8,flexShrink:0,display:"flex",alignItems:"center",justifyContent:"center",color:"#9aa0a6",fontSize:12}}>
-      <Icon name="route" size={20} color="#9aa0a6" sw={1.5} fill="none" style={{marginRight:6}}/> Route map
-    </div>}
-
     {/* Stop list */}
     <div style={{flex:1,overflowY:"auto",padding:"8px 16px"}}>
       {activeStops.map((p,i) => <div key={p.id} style={{display:"flex",gap:10,alignItems:"stretch"}}>
