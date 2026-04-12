@@ -29,12 +29,5 @@ export default function RouteList({routes, onRouteClick, onDelete, onNew, isMobi
         </div>
       </div>;
     })}
-    {!bulkMode && !isMobile && <button onClick={onNew}
-      style={{padding:16,borderRadius:8,border:`1.5px dashed ${C.border}`,background:"none",
-        width:"100%",margin:"0 10px",boxSizing:"border-box",
-        display:"flex",alignItems:"center",justifyContent:"center",gap:8,
-        color:C.blue,fontWeight:500,fontSize:13,cursor:"pointer",fontFamily:"inherit"}}>
-      <Icon name="plus" size={16} color={C.blue} sw={2}/> Create new route
-    </button>}
   </>;
 }

@@ -477,7 +477,8 @@ export default function App() {
       <div style={{width:340,display:"flex",flexDirection:"column",borderRight:`1px solid ${C.border}`,flexShrink:0}}>
         <div style={{display:"flex",alignItems:"center",padding:"10px 16px",borderBottom:`1px solid ${C.borderLight}`,flexShrink:0,gap:6}}>
           <div style={{display:"flex",alignItems:"center",gap:4,fontSize:13,flex:1,color:C.textLight}}>
-            {breadcrumbParts.length > 0 ? <>
+            {view==="routes" ? <span>All routes · {routes.length}</span>
+            : breadcrumbParts.length > 0 ? <>
               {breadcrumbParts.map((p,i)=><span key={i}>{i>0&&<span style={{color:C.border,margin:"0 3px"}}>›</span>}<b style={{color:C.blue,fontWeight:500}}>{p}</b></span>)}
               <span style={{marginLeft:4}}>· {filtered.length}</span>
               <button onClick={clearFilters} style={{width:20,height:20,borderRadius:"50%",background:C.blueBg,border:"none",display:"flex",alignItems:"center",justifyContent:"center",cursor:"pointer",marginLeft:3}}>
@@ -502,7 +503,8 @@ export default function App() {
               Cancel
             </button>
           </>}
-          {!bulkMode && <button onClick={()=>setSearchOpen(true)} style={{display:"flex",alignItems:"center",gap:5,padding:"6px 14px",borderRadius:16,background:C.blue,color:"#fff",border:"none",fontSize:13,fontWeight:500}}>
+          {!bulkMode && <button onClick={()=>{ view==="routes" ? openRoutePlanner([]) : setSearchOpen(true); }}
+            style={{display:"flex",alignItems:"center",gap:5,padding:"6px 14px",borderRadius:16,background:C.blue,color:"#fff",border:"none",fontSize:13,fontWeight:500,cursor:"pointer",fontFamily:"inherit"}}>
             <Icon name="plus" size={14} color="#fff" sw={2.5}/> Add
           </button>}
         </div>
