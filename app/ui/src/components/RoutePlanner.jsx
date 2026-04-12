@@ -1,7 +1,7 @@
 import { useState, useEffect } from "react";
 import { api, C, Icon } from "../shared.jsx";
 
-export default function RoutePlanner({allPlaces, initialStops, editingRoute, onClose, onSaved, isMobile}) {
+export default function RoutePlanner({allPlaces, initialStops, editingRoute, onClose, onSaved, onPlaceAdded, isMobile}) {
   const [selected,setSelected] = useState(initialStops||[]);
   const [name,setName] = useState(editingRoute?.name||"New route");
   const [searchQ,setSearchQ] = useState("");
@@ -35,7 +35,7 @@ export default function RoutePlanner({allPlaces, initialStops, editingRoute, onC
         ...r, tags:[], saved: new Date().toISOString().split("T")[0]
       })});
       setSelected(prev=>[...prev,saved.id]);
-      // Update parent's place list
+      onPlaceAdded?.(saved);
     } catch(e) { console.error(e); }
   };
 

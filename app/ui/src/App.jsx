@@ -120,24 +120,32 @@ export default function App() {
     return () => window.removeEventListener("resize",check);
   }, []);
 
-  // Back button: push history state when opening detail views or search
+  // Back button: push history state for all overlays and modal states
   useEffect(() => {
     if (!isMobile) return;
-    const hasOverlay = mobileDetail || mobileRouteDetail || routePlanner || searchOpen;
+    const hasOverlay = mobileDetail || mobileRouteDetail || routePlanner || searchOpen || bulkMode || editPlace;
     if (hasOverlay) { history.pushState({overlay:true},""); }
-  }, [isMobile, !!mobileDetail, !!mobileRouteDetail, !!routePlanner, searchOpen]);
+  }, [isMobile, !!mobileDetail, !!mobileRouteDetail, !!routePlanner, searchOpen, bulkMode, !!editPlace]);
 
   useEffect(() => {
     if (!isMobile) return;
     const onPop = () => {
-      if (routePlanner) { setRoutePlanner(null); }
+      if (editPlace) { setEditPlace(null); }
+      else if (routePlanner) { setRoutePlanner(null); }
       else if (mobileRouteDetail) { setMobileRouteDetail(null); }
       else if (mobileDetail) { setMobileDetail(null); }
       else if (searchOpen) { setSearchOpen(false); setSearchQuery(""); }
+      else if (bulkMode) { setBulkMode(false); setBulkSelected(new Set()); }
+      else {
+        // At root level — push state back to prevent exit
+        history.pushState({root:true},"");
+      }
     };
+    // Push initial state so first back doesn't exit
+    if (!window._travelHistoryInit) { history.pushState({root:true},""); window._travelHistoryInit=true; }
     window.addEventListener("popstate",onPop);
     return () => window.removeEventListener("popstate",onPop);
-  }, [isMobile, mobileDetail, mobileRouteDetail, routePlanner, searchOpen]);
+  }, [isMobile, mobileDetail, mobileRouteDetail, routePlanner, searchOpen, bulkMode, editPlace]);
 
   const load = useCallback(() => {
     api("/places").then(d=>{setPlaces(d.places||[]);setLoading(false);}).catch(()=>setLoading(false));
@@ -253,6 +261,12 @@ export default function App() {
     setBulkMode(false);
   };
 
+  const handleBulkAddToRoute = () => {
+    const ids = [...bulkSelected];
+    setBulkMode(false); setBulkSelected(new Set());
+    openRoutePlanner(ids);
+  };
+
   const toggleBulkItem = id => {
     setBulkSelected(prev => {
       const next = new Set(prev);
@@ -342,6 +356,10 @@ export default function App() {
       {/* Bulk mode bar for mobile — triggered by long press */}
       {bulkMode && <div style={{display:"flex",alignItems:"center",gap:8,padding:"6px 16px",background:C.blueBg,flexShrink:0}}>
         <span style={{fontSize:13,color:C.blue,fontWeight:500,flex:1}}>{bulkSelected.size} selected</span>
+        {view==="places" && <button onClick={handleBulkAddToRoute} disabled={bulkSelected.size===0}
+          style={{display:"flex",alignItems:"center",gap:4,padding:"6px 12px",borderRadius:16,background:bulkSelected.size>0?C.blue:"transparent",border:`1px solid ${bulkSelected.size>0?C.blue:C.border}`,fontSize:12,fontWeight:500,color:bulkSelected.size>0?"#fff":C.textLight,cursor:bulkSelected.size>0?"pointer":"default",fontFamily:"inherit"}}>
+          <Icon name="route" size={14} color={bulkSelected.size>0?"#fff":C.textLight} sw={1.5} fill="none"/> Route
+        </button>}
         <button onClick={handleBulkDelete} disabled={bulkSelected.size===0}
           style={{display:"flex",alignItems:"center",gap:4,padding:"6px 12px",borderRadius:16,background:bulkSelected.size>0?"#fce8e6":"transparent",border:`1px solid ${bulkSelected.size>0?C.red:C.border}`,fontSize:12,fontWeight:500,color:bulkSelected.size>0?C.red:C.textLight,cursor:bulkSelected.size>0?"pointer":"default",fontFamily:"inherit"}}>
           <Icon name="trash" size={14} color={bulkSelected.size>0?C.red:C.textLight} sw={1.5}/> Delete
@@ -378,7 +396,7 @@ export default function App() {
 
     {editPlace && <EditModal place={editPlace} onClose={()=>setEditPlace(null)} onSaved={handleEdited}/>}
     {routePlanner && <RoutePlanner allPlaces={places} initialStops={routePlanner.initialStops}
-      editingRoute={routePlanner.editingRoute} onClose={()=>setRoutePlanner(null)} onSaved={handleRouteSaved} isMobile={true}/>}
+      editingRoute={routePlanner.editingRoute} onClose={()=>setRoutePlanner(null)} onSaved={handleRouteSaved} onPlaceAdded={p=>setPlaces(prev=>[p,...prev])} isMobile={true}/>}
   </div>;
 
   // ── DESKTOP LAYOUT ──
@@ -494,6 +512,10 @@ export default function App() {
           </button>}
           {bulkMode && <>
             <span style={{fontSize:12,color:C.blue,fontWeight:500}}>{bulkSelected.size} selected</span>
+            {view==="places" && <button onClick={handleBulkAddToRoute} disabled={bulkSelected.size===0}
+              style={{display:"flex",alignItems:"center",gap:4,padding:"6px 10px",borderRadius:16,background:bulkSelected.size>0?C.blue:"transparent",border:`1px solid ${bulkSelected.size>0?C.blue:C.border}`,fontSize:12,fontWeight:500,color:bulkSelected.size>0?"#fff":C.textLight,cursor:bulkSelected.size>0?"pointer":"default",fontFamily:"inherit"}}>
+              <Icon name="route" size={14} color={bulkSelected.size>0?"#fff":C.textLight} sw={1.5} fill="none"/> Route
+            </button>}
             <button onClick={handleBulkDelete} disabled={bulkSelected.size===0}
               style={{display:"flex",alignItems:"center",gap:4,padding:"6px 10px",borderRadius:16,background:bulkSelected.size>0?"#fce8e6":"transparent",border:`1px solid ${bulkSelected.size>0?C.red:C.border}`,fontSize:12,fontWeight:500,color:bulkSelected.size>0?C.red:C.textLight,cursor:bulkSelected.size>0?"pointer":"default",fontFamily:"inherit"}}>
               <Icon name="trash" size={14} color={bulkSelected.size>0?C.red:C.textLight} sw={1.5}/> Delete
@@ -523,7 +545,7 @@ export default function App() {
       {/* Right panel */}
       {view === "settings" ? <SettingsPage isMobile={false} user={user} onLogout={handleLogout} onUserUpdate={u=>setUser(u)}/>
       : routePlanner ? <RoutePlanner allPlaces={places} initialStops={routePlanner.initialStops}
-          editingRoute={routePlanner.editingRoute} onClose={()=>setRoutePlanner(null)} onSaved={handleRouteSaved} isMobile={false}/>
+          editingRoute={routePlanner.editingRoute} onClose={()=>setRoutePlanner(null)} onSaved={handleRouteSaved} onPlaceAdded={p=>setPlaces(prev=>[p,...prev])} isMobile={false}/>
       : view === "places" && selected ? <DetailPanel place={selected}
           onClose={()=>setSelectedId(null)} onDelete={handleDelete}
           onEdit={p=>setEditPlace(p)} onRefresh={handleRefresh} onShare={doShare}/>
