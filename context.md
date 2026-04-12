@@ -4,7 +4,7 @@
 Multi-user travel wishlist. Save places → auto-categorise → browse & filter → loosely route → open in Google Maps. Not a trip planner.
 
 ## Stack
-- **Backend:** FastAPI + SQLite (`app/main.py`, ~980 lines)
+- **Backend:** FastAPI + SQLite (`app/main.py`, ~1040 lines)
 - **Frontend:** React + Vite (single-file components, inline styles)
 - **External:** Google Places API (New) — search, details, refresh, static maps, nearby transit
 - **Auth:** Cookie-based sessions, PBKDF2-SHA256 password hashing, 90-day expiry
@@ -17,7 +17,7 @@ app/
   ui/
     src/
       shared.jsx             # Colours (C), icons (Icon), Tags, ActionPill, InfoRow, INTENTS
-      App.jsx                # Auth gate, layout orchestrator, all state, desktop + mobile layouts
+      App.jsx                # Auth gate, profile popover, layout orchestrator, all state
       components/
         Sidebar.jsx          # Browse by intent, region, user tags (desktop only)
         PlaceList.jsx         # Scrollable list grouped by city, swipe gestures (mobile)
@@ -28,7 +28,7 @@ app/
         RouteList.jsx         # Saved routes list
         RouteDetail.jsx       # Route timeline with travel durations between stops
         RoutePlanner.jsx      # Create/edit routes (add stops, reorder)
-        SettingsPage.jsx      # Account, import/export, API status, danger zone
+        SettingsPage.jsx      # Account, security, notifications, import/export, danger zone
         MobileNav.jsx         # Bottom tab bar (mobile)
 ```
 
@@ -42,6 +42,8 @@ app/
 | display_name | TEXT | Shown in UI |
 | password | TEXT | PBKDF2-SHA256 hash with salt |
 | color | TEXT | Avatar background colour hex |
+| email | TEXT | For recovery/notifications |
+| notify_digest | INTEGER | Weekly digest toggle (0/1) |
 | created | TEXT | ISO date |
 
 ### sessions
@@ -103,7 +105,10 @@ All data endpoints are scoped by user_id from session cookie.
 | POST | /api/auth/login | Login, sets session cookie |
 | POST | /api/auth/logout | Clear session |
 | GET | /api/auth/me | Current user or null |
-| PATCH | /api/auth/me | Update display_name, color |
+| PATCH | /api/auth/me | Update display_name, color, email, notify_digest |
+| POST | /api/auth/password | Change password (requires current password) |
+| POST | /api/auth/username | Change username (requires password) |
+| DELETE | /api/auth/account | Delete account + all data |
 
 ### Places
 | Method | Path | What |
@@ -142,7 +147,7 @@ All data endpoints are scoped by user_id from session cookie.
 ## Desktop Layout (3-column)
 ```
 ┌──────────────────────────────────────────────────────────┐
-│ Logo    Search (flex)              [Places|Routes] ⚙ (R) │
+│ Logo    Search (flex)              [Places|Routes]   (R) │
 ├─────────┬──────────┬─────────────────────────────────────┤
 │ Sidebar │ List     │ Detail Panel                         │
 │ (248px) │ (340px)  │ (flex)                               │
@@ -156,17 +161,28 @@ All data endpoints are scoped by user_id from session cookie.
 └─────────┴──────────┴─────────────────────────────────────┘
 ```
 
-Search bar stretches to fill. Tabs + settings + avatar grouped flush-right.
+No settings gear icon. Avatar (R) opens a Google-style profile popover with greeting, "Manage account" → Settings, and sign out. Search bar stretches to fill. Tabs + avatar grouped flush-right.
+
+List header is context-aware: shows "All places · N" or "All routes · N" depending on view. The "+ Add" button opens search on Places view, route planner on Routes view.
 
 ## Mobile Layout
 - Pill search bar + avatar (taps to settings)
 - Horizontal intent chips for filtering
 - Place list with swipe gestures: left → delete, right → edit
 - Long-press (500ms) enters multi-select mode
-- FAB (+) on both Places and Routes views
-- Full-screen detail view with bottom sheet menu
+- FAB (+) on both Places and Routes views — same action as header "+ Add"
+- Full-screen detail view
 - Bottom tab nav: Places, Routes, Settings
 - Back button handles: search → detail → route detail → route planner
+
+## Menus & Popovers
+
+All context menus (3-dot buttons) use **dropdown popovers anchored to the trigger button**, not bottom sheets. This applies everywhere:
+- MobileDetail 3-dot → popover below button (positioned via getBoundingClientRect)
+- RouteDetail 3-dot → popover below button (same on mobile and desktop)
+- Desktop profile avatar → popover below avatar, aligned right
+
+Light scrim behind all popovers for dismiss-on-tap. Fade-in animation, no slide.
 
 ## Key Interactions
 
@@ -181,6 +197,13 @@ Routes show haversine-estimated travel time between consecutive stops (drive min
 
 ### Detail Panel Info
 Address and phone are clickable (Maps link, tel: link). Website already linked. Info section uses 2-column grid: left = hours/address/phone/website, right = amenities/payment/dining/serves.
+
+### Account Management (Settings)
+Four sections:
+- **Account** — Avatar, display name (inline edit), username (inline edit + password confirm), sign out
+- **Security** — Change password (inline expand: current + new + confirm)
+- **Notifications** — Email address (inline edit), weekly digest toggle
+- **Danger zone** — Delete all data (keeps account), delete account (removes everything)
 
 ## Intent Categories
 
@@ -205,12 +228,11 @@ Auto-classified from Google `types[]`. Sidebar hides categories with 0 places.
 4. Routes are loose — ordered stops + travel estimates + "open in Maps"
 5. Mobile-first interaction, desktop-first density
 6. Every info piece is actionable — addresses link to Maps, phones to dialer, transit to walking directions
-7. Consistent design language — FAB for adding on both views, swipe for list actions
-8. Minimum font anywhere: 11px
+7. Consistent design language — FAB and "+ Add" button are context-aware per view
+8. Menus anchor to their trigger — no bottom sheets for context menus
+9. Minimum font anywhere: 11px
 
 ## Pending / Planned
 
-- Change password (inline expand form in Settings)
-- Change username
-- Delete account
-- Email field + notifications (requires SMTP config)
+- SMTP configuration for email notifications (backend sends weekly digest)
+- Account recovery via email
