@@ -41,9 +41,9 @@ export default function RouteDetail({route, onClose, onPlaceClick, onEdit, onDel
       </button>
 
       {/* Desktop dropdown menu */}
-      {menuOpen && !isMobile && <>
-        <div onClick={()=>setMenuOpen(false)} style={{position:"fixed",inset:0,zIndex:49}}/>
-        <div style={{position:"absolute",top:"100%",right:20,zIndex:50,background:"#fff",borderRadius:8,boxShadow:"0 2px 12px rgba(0,0,0,.15)",border:`1px solid ${C.borderLight}`,minWidth:180,overflow:"hidden",animation:"fadeIn .1s"}}>
+      {menuOpen && <>
+        <div onClick={()=>setMenuOpen(false)} style={{position:"fixed",inset:0,zIndex:49,background:isMobile?"rgba(0,0,0,.08)":"transparent"}}/>
+        <div style={{position:"absolute",top:"100%",right:isMobile?0:20,zIndex:50,background:"#fff",borderRadius:10,boxShadow:"0 2px 16px rgba(0,0,0,.15)",border:`1px solid ${C.borderLight}`,minWidth:200,overflow:"hidden",animation:"fadeIn .1s",marginTop:4}}>
           <DropItem icon="edit" label="Edit stops" onClick={()=>{setMenuOpen(false);onEdit?.(route);}}/>
           <DropItem icon="external" label="Open in Maps" onClick={()=>{setMenuOpen(false);if(route.route_url)window.open(route.route_url,"_blank");}}/>
           <div style={{height:1,background:C.borderLight,margin:"2px 0"}}/>
@@ -51,17 +51,6 @@ export default function RouteDetail({route, onClose, onPlaceClick, onEdit, onDel
         </div>
       </>}
     </div>
-
-    {/* Mobile bottom sheet menu */}
-    {menuOpen && isMobile && <>
-      <div onClick={()=>setMenuOpen(false)} style={{position:"fixed",inset:0,background:"rgba(0,0,0,.3)",zIndex:50,animation:"fadeIn .15s"}}/>
-      <div style={{position:"fixed",bottom:0,left:0,right:0,background:"#fff",borderRadius:"16px 16px 0 0",zIndex:51,animation:"slideUp .2s",paddingBottom:20}}>
-        <div style={{width:36,height:4,borderRadius:2,background:C.border,margin:"10px auto 6px"}}/>
-        <SheetItem icon="edit" label="Edit stops" onClick={()=>{setMenuOpen(false);onEdit?.(route);}}/>
-        <SheetItem icon="external" label="Open in Google Maps" onClick={()=>{setMenuOpen(false);if(route.route_url)window.open(route.route_url,"_blank");}}/>
-        <SheetItem icon="trash" label="Delete route" color={C.red} onClick={handleDelete}/>
-      </div>
-    </>}
 
     {/* Map */}
     <div style={{height:isMobile?220:200,background:"#e8eaed",flexShrink:0,position:"relative"}}>
@@ -126,17 +115,10 @@ export default function RouteDetail({route, onClose, onPlaceClick, onEdit, onDel
 
 function DropItem({icon, label, onClick, color}) {
   return <button onClick={onClick}
-    style={{display:"flex",alignItems:"center",gap:10,width:"100%",padding:"10px 16px",background:"none",border:"none",fontSize:13,
+    style={{display:"flex",alignItems:"center",gap:10,width:"100%",padding:"11px 16px",background:"none",border:"none",fontSize:14,
       color:color||C.text,cursor:"pointer",fontFamily:"inherit",textAlign:"left",transition:"background .1s"}}
     onMouseEnter={e=>{e.currentTarget.style.background=C.surface;}}
     onMouseLeave={e=>{e.currentTarget.style.background="transparent";}}>
-    <Icon name={icon} size={16} color={color||C.textMid} sw={1.5}/>{label}
-  </button>;
-}
-
-function SheetItem({icon, label, onClick, color}) {
-  return <button onClick={onClick} style={{display:"flex",alignItems:"center",gap:14,width:"100%",padding:"14px 24px",background:"none",border:"none",fontSize:16,
-    color:color||C.text,cursor:"pointer",fontFamily:"inherit",textAlign:"left"}}>
-    <Icon name={icon} size={20} color={color||C.textMid}/>{label}
+    <Icon name={icon} size={18} color={color||C.textMid} sw={1.5}/>{label}
   </button>;
 }

@@ -95,6 +95,7 @@ export default function App() {
   const [mobileRouteDetail,setMobileRouteDetail] = useState(null);
   const [bulkMode,setBulkMode] = useState(false);
   const [bulkSelected,setBulkSelected] = useState(new Set());
+  const [profileOpen,setProfileOpen] = useState(false);
 
   // Sidebar filter state
   const [expandedIntent,setExpandedIntent] = useState(null);
@@ -408,7 +409,7 @@ export default function App() {
           onClose={()=>{setSearchOpen(false);setSearchQuery("");}}/>}
       </div>
 
-      {/* Right group — tabs + settings + avatar, pushed to far right */}
+      {/* Right group — tabs + avatar with profile popover */}
       <div style={{display:"flex",alignItems:"center",gap:8,flexShrink:0,marginLeft:"auto"}}>
         <div style={{display:"flex",gap:2,background:C.borderLight,borderRadius:8,padding:2}}>
           <button onClick={()=>{switchView("places");clearFilters();}}
@@ -428,10 +429,36 @@ export default function App() {
             <span style={{fontSize:11,color:C.textLight,background:view==="routes"?C.blueBg:C.surface,padding:"1px 6px",borderRadius:6}}>{routes.length}</span>
           </button>
         </div>
-        <button onClick={()=>switchView("settings")} style={{background:"none",border:"none",padding:4,color:view==="settings"?C.blue:C.textMid}}>
-          <Icon name="gear" size={22}/>
-        </button>
-        <div style={{width:34,height:34,borderRadius:"50%",background:userColor,color:"#fff",display:"flex",alignItems:"center",justifyContent:"center",fontSize:14,fontWeight:500}}>{userInitial}</div>
+        <div style={{position:"relative"}}>
+          <button onClick={()=>setProfileOpen(!profileOpen)}
+            style={{width:34,height:34,borderRadius:"50%",background:userColor,color:"#fff",display:"flex",alignItems:"center",justifyContent:"center",fontSize:14,fontWeight:500,border:profileOpen?`2px solid ${C.blue}`:"2px solid transparent",cursor:"pointer",transition:"border .15s"}}>
+            {userInitial}
+          </button>
+          {profileOpen && <>
+            <div onClick={()=>setProfileOpen(false)} style={{position:"fixed",inset:0,zIndex:49}}/>
+            <div style={{position:"absolute",top:"calc(100% + 8px)",right:0,zIndex:50,width:260,background:"#fff",borderRadius:12,boxShadow:"0 4px 24px rgba(0,0,0,.15)",border:`1px solid ${C.borderLight}`,overflow:"hidden",animation:"fadeIn .12s"}}>
+              {user.email && <div style={{padding:"12px 16px 0",fontSize:12,color:C.textMid,textAlign:"center"}}>{user.email}</div>}
+              <div style={{padding:"16px 16px 12px",display:"flex",flexDirection:"column",alignItems:"center",gap:6}}>
+                <div style={{width:52,height:52,borderRadius:"50%",background:userColor,color:"#fff",display:"flex",alignItems:"center",justifyContent:"center",fontSize:22,fontWeight:500}}>{userInitial}</div>
+                <div style={{fontSize:16,fontWeight:500}}>Hi, {user.display_name||user.username}!</div>
+                <button onClick={()=>{setProfileOpen(false);switchView("settings");}}
+                  style={{padding:"6px 20px",borderRadius:20,border:`1px solid ${C.border}`,background:"none",fontSize:13,color:C.blue,fontWeight:500,cursor:"pointer",fontFamily:"inherit",marginTop:2}}>
+                  Manage account
+                </button>
+              </div>
+              <div style={{borderTop:`1px solid ${C.borderLight}`,display:"flex"}}>
+                <button onClick={()=>{setProfileOpen(false);switchView("settings");}}
+                  style={{flex:1,padding:"12px 0",background:"none",border:"none",borderRight:`1px solid ${C.borderLight}`,fontSize:13,color:C.textMid,cursor:"pointer",fontFamily:"inherit",display:"flex",alignItems:"center",justifyContent:"center",gap:6}}>
+                  <Icon name="gear" size={15} color={C.textMid}/> Settings
+                </button>
+                <button onClick={()=>{setProfileOpen(false);handleLogout();}}
+                  style={{flex:1,padding:"12px 0",background:"none",border:"none",fontSize:13,color:C.textMid,cursor:"pointer",fontFamily:"inherit",display:"flex",alignItems:"center",justifyContent:"center",gap:6}}>
+                  <Icon name="external" size={15} color={C.textMid}/> Sign out
+                </button>
+              </div>
+            </div>
+          </>}
+        </div>
       </div>
     </div>
 

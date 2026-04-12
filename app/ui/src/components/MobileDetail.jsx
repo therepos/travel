@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { C, Icon, Stars, Tag, ActionPill, InfoRow, api } from "../shared.jsx";
 
 const HIGHLIGHT_COLORS = {
@@ -35,6 +35,7 @@ export default function MobileDetail({place, onClose, onDelete, onEdit, onRefres
   const [toast,setToast] = useState(null);
   const [transport,setTransport] = useState(null);
   const [highlights,setHighlights] = useState(null);
+  const menuBtnRef = useRef(null);
   const mapsUrl = place.google_maps_url||`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(place.name)}`;
 
   useEffect(() => {
@@ -67,7 +68,7 @@ export default function MobileDetail({place, onClose, onDelete, onEdit, onRefres
       <button onClick={onClose} style={{width:40,height:40,background:"#fff",border:"none",borderRadius:"50%",display:"flex",alignItems:"center",justifyContent:"center",cursor:"pointer",boxShadow:"0 1px 4px rgba(0,0,0,.1)"}}>
         <Icon name="back" size={20} sw={2.5}/>
       </button>
-      <button onClick={()=>setMenuOpen(true)} style={{width:40,height:40,background:"#fff",border:"none",borderRadius:"50%",display:"flex",alignItems:"center",justifyContent:"center",cursor:"pointer",boxShadow:"0 1px 4px rgba(0,0,0,.1)"}}>
+      <button ref={menuBtnRef} onClick={()=>setMenuOpen(true)} style={{width:40,height:40,background:"#fff",border:"none",borderRadius:"50%",display:"flex",alignItems:"center",justifyContent:"center",cursor:"pointer",boxShadow:"0 1px 4px rgba(0,0,0,.1)"}}>
         <Icon name="dots" size={18} color={C.text}/>
       </button>
     </div>
@@ -165,24 +166,30 @@ export default function MobileDetail({place, onClose, onDelete, onEdit, onRefres
     </div>
 
     {menuOpen && <>
-      <div onClick={()=>setMenuOpen(false)} style={{position:"fixed",inset:0,background:"rgba(0,0,0,.3)",zIndex:50,animation:"fadeIn .15s"}}/>
-      <div style={{position:"fixed",bottom:0,left:0,right:0,background:"#fff",borderRadius:"16px 16px 0 0",zIndex:51,animation:"slideUp .2s",paddingBottom:20}}>
-        <div style={{width:36,height:4,borderRadius:2,background:C.border,margin:"10px auto 6px"}}/>
-        <MenuItem icon="share" label="Share" onClick={()=>{setMenuOpen(false);onShare?.(place);}}/>
-        <MenuItem icon="edit" label="Edit tags & notes" onClick={()=>{setMenuOpen(false);onEdit?.(place);}}/>
-        <MenuItem icon="refresh" label="Refresh from Google" onClick={doRefresh}/>
-        <MenuItem icon="trash" label="Delete" color={C.red} onClick={()=>{setMenuOpen(false);if(confirm(`Delete "${place.name}"?`))onDelete?.(place.id);}}/>
+      <div onClick={()=>setMenuOpen(false)} style={{position:"fixed",inset:0,background:"rgba(0,0,0,.08)",zIndex:50}}/>
+      <div style={{position:"fixed",zIndex:51,
+        top:menuBtnRef.current?menuBtnRef.current.getBoundingClientRect().bottom+6:100,
+        right:14,
+        background:"#fff",borderRadius:10,boxShadow:"0 2px 16px rgba(0,0,0,.15)",border:`1px solid ${C.borderLight}`,minWidth:200,overflow:"hidden",animation:"fadeIn .12s"}}>
+        <PopItem icon="share" label="Share" onClick={()=>{setMenuOpen(false);onShare?.(place);}}/>
+        <PopItem icon="edit" label="Edit tags & notes" onClick={()=>{setMenuOpen(false);onEdit?.(place);}}/>
+        <PopItem icon="refresh" label="Refresh from Google" onClick={doRefresh}/>
+        <div style={{height:1,background:C.borderLight,margin:"2px 0"}}/>
+        <PopItem icon="trash" label="Delete" color={C.red} onClick={()=>{setMenuOpen(false);if(confirm(`Delete "${place.name}"?`))onDelete?.(place.id);}}/>
       </div>
     </>}
     {editModal}
-    <style>{`@keyframes fadeIn{from{opacity:0}to{opacity:1}}@keyframes slideUp{from{transform:translateY(100%)}to{transform:translateY(0)}}`}</style>
+    <style>{`@keyframes fadeIn{from{opacity:0}to{opacity:1}}`}</style>
   </div>;
 }
 
-function MenuItem({icon, label, onClick, color}) {
-  return <button onClick={onClick} style={{display:"flex",alignItems:"center",gap:14,width:"100%",padding:"14px 24px",background:"none",border:"none",fontSize:16,
-    color:color||C.text,cursor:"pointer",fontFamily:"inherit",textAlign:"left"}}>
-    <Icon name={icon} size={20} color={color||C.textMid}/>{label}
+function PopItem({icon, label, onClick, color}) {
+  return <button onClick={onClick}
+    style={{display:"flex",alignItems:"center",gap:10,width:"100%",padding:"11px 16px",background:"none",border:"none",fontSize:14,
+      color:color||C.text,cursor:"pointer",fontFamily:"inherit",textAlign:"left",transition:"background .1s"}}
+    onMouseEnter={e=>{e.currentTarget.style.background=C.surface;}}
+    onMouseLeave={e=>{e.currentTarget.style.background="transparent";}}>
+    <Icon name={icon} size={18} color={color||C.textMid} sw={1.5}/>{label}
   </button>;
 }
 
