@@ -92,25 +92,68 @@ def init_db():
     conn.commit(); conn.close()
 
 # ── Intent classification ─────────────────────────────────
+# Generic Google Places types that should never drive primary categorisation
+GENERIC_TYPES = {
+    "establishment","point_of_interest","premise","subpremise",
+    "store","food","place_of_worship","local_government_office","general_contractor",
+    "finance","health","tourist_attraction",  # tourist_attraction is overused — prefer specific type
+}
+
 INTENT_MAP = {
-    "restaurant":"eat","food":"eat","cafe":"eat","bakery":"eat",
+    # Eat
+    "restaurant":"eat","cafe":"eat","bakery":"eat",
     "meal_takeaway":"eat","meal_delivery":"eat",
+    "tea_house":"eat","coffee_shop":"eat","ice_cream_shop":"eat",
+    "dessert_shop":"eat","dessert_restaurant":"eat","candy_store":"eat",
+    "fast_food_restaurant":"eat","buffet_restaurant":"eat",
+    "breakfast_restaurant":"eat","brunch_restaurant":"eat",
+    "deli":"eat","diner":"eat","food_court":"eat","sandwich_shop":"eat",
+    "donut_shop":"eat","juice_shop":"eat","fine_dining_restaurant":"eat",
+    "acai_shop":"eat","bagel_shop":"eat","chocolate_shop":"eat",
+    "afghani_restaurant":"eat","food":"eat",
+    # Drink
     "bar":"drink","night_club":"drink","liquor_store":"drink",
+    "pub":"drink","wine_bar":"drink","brewery":"drink",
+    "winery":"drink","distillery":"drink","bar_and_grill":"drink",
+    # See
     "museum":"see","art_gallery":"see","church":"see","mosque":"see",
-    "hindu_temple":"see","synagogue":"see","tourist_attraction":"see",
+    "hindu_temple":"see","synagogue":"see","historical_landmark":"see",
+    "monument":"see","cultural_landmark":"see","sculpture":"see",
+    "art_studio":"see","planetarium":"see","observation_deck":"see",
+    # Do
     "park":"do","natural_feature":"do","campground":"do",
     "amusement_park":"do","zoo":"do","aquarium":"do","beach":"do",
     "stadium":"do","gym":"do","bowling_alley":"do","movie_theater":"do","casino":"do",
-    "shopping_mall":"shop","store":"shop","clothing_store":"shop",
+    "hiking_area":"do","national_park":"do","state_park":"do","garden":"do",
+    "marina":"do","ski_resort":"do","water_park":"do","wildlife_park":"do",
+    "fitness_center":"do","sports_club":"do","sports_complex":"do","sports_activity_location":"do",
+    "performing_arts_theater":"see","concert_hall":"do","opera_house":"see",
+    "playground":"do","picnic_ground":"do","barbecue_area":"do",
+    # Shop
+    "shopping_mall":"shop","clothing_store":"shop",
     "book_store":"shop","jewelry_store":"shop","shoe_store":"shop",
-    "electronics_store":"shop","furniture_store":"shop",
-    "lodging":"stay","rv_park":"stay",
-    "spa":"services","beauty_salon":"services","hair_care":"services",
+    "electronics_store":"shop","furniture_store":"shop","department_store":"shop",
+    "convenience_store":"shop","supermarket":"shop","grocery_store":"shop",
+    "market":"shop","gift_shop":"shop","sporting_goods_store":"shop",
+    "bicycle_store":"shop","hardware_store":"shop","home_goods_store":"shop",
+    "florist":"shop","pet_store":"shop","toy_store":"shop",
+    "discount_store":"shop","wholesaler":"shop","stationery_store":"shop",
+    "store":"shop",  # generic fallback — only matches if no specific shop type
+    # Stay
+    "lodging":"stay","rv_park":"stay","hotel":"stay","motel":"stay",
+    "resort_hotel":"stay","hostel":"stay","bed_and_breakfast":"stay",
+    "guest_house":"stay","extended_stay_hotel":"stay","japanese_inn":"stay",
+    "cottage":"stay","cabin":"stay","camping_cabin":"stay","farmstay":"stay",
+    "private_guest_room":"stay","budget_japanese_inn":"stay",
+    # Services
+    "spa":"services","beauty_salon":"services","hair_care":"services","hair_salon":"services",
     "laundry":"services","car_repair":"services","car_wash":"services",
     "dentist":"services","doctor":"services","hospital":"services",
-    "pharmacy":"services","veterinary_care":"services",
+    "pharmacy":"services","veterinary_care":"services","drugstore":"services",
     "real_estate_agency":"services","travel_agency":"services",
     "post_office":"services","bank":"services","atm":"services",
+    "barber_shop":"services","massage":"services","nail_salon":"services",
+    "tailor":"services","accounting":"services","lawyer":"services",
 }
 CUISINE_MAP = {
     "japanese_restaurant":"Japanese","sushi_restaurant":"Japanese","ramen_restaurant":"Japanese",
@@ -138,25 +181,67 @@ CUISINE_MAP = {
 }
 SUB_TYPE_MAP = {
     "cafe":"Cafe","bakery":"Bakery","bar":"Bar","night_club":"Club",
+    "tea_house":"Tea house","coffee_shop":"Coffee shop","ice_cream_shop":"Ice cream",
+    "dessert_shop":"Dessert","dessert_restaurant":"Dessert","candy_store":"Candy",
+    "fast_food_restaurant":"Fast food","buffet_restaurant":"Buffet",
+    "breakfast_restaurant":"Breakfast","brunch_restaurant":"Brunch",
+    "deli":"Deli","diner":"Diner","food_court":"Food court","sandwich_shop":"Sandwich",
+    "donut_shop":"Donuts","juice_shop":"Juice bar","fine_dining_restaurant":"Fine dining",
+    "pub":"Pub","wine_bar":"Wine bar","brewery":"Brewery","winery":"Winery","distillery":"Distillery",
     "museum":"Museum","art_gallery":"Gallery","church":"Church","mosque":"Mosque",
     "hindu_temple":"Temple","synagogue":"Synagogue","tourist_attraction":"Attraction",
-    "park":"Park","natural_feature":"Nature","campground":"Camping",
+    "historical_landmark":"Landmark","monument":"Monument","cultural_landmark":"Landmark",
+    "observation_deck":"Viewpoint","performing_arts_theater":"Theater","concert_hall":"Concert hall",
+    "park":"Park","natural_feature":"Nature","campground":"Camping","national_park":"National park",
+    "state_park":"State park","garden":"Garden","hiking_area":"Hiking",
     "beach":"Beach","zoo":"Zoo","aquarium":"Aquarium",
-    "amusement_park":"Theme park","movie_theater":"Cinema",
-    "bowling_alley":"Bowling","stadium":"Stadium","gym":"Gym",
+    "amusement_park":"Theme park","movie_theater":"Cinema","water_park":"Water park",
+    "bowling_alley":"Bowling","stadium":"Stadium","gym":"Gym","fitness_center":"Gym",
+    "sports_complex":"Sports","sports_activity_location":"Sports","marina":"Marina",
+    "ski_resort":"Ski resort","casino":"Casino",
     "shopping_mall":"Mall","clothing_store":"Fashion","book_store":"Books",
-    "lodging":"Hotel","spa":"Spa","beauty_salon":"Beauty salon",
-    "hair_care":"Hair salon","laundry":"Laundry",
-    "car_repair":"Auto repair","dentist":"Dentist","doctor":"Doctor",
-    "pharmacy":"Pharmacy","veterinary_care":"Vet",
+    "department_store":"Department store","supermarket":"Supermarket","grocery_store":"Grocery",
+    "convenience_store":"Convenience","market":"Market","gift_shop":"Gift shop",
+    "jewelry_store":"Jewellery","shoe_store":"Shoes","electronics_store":"Electronics",
+    "furniture_store":"Furniture","sporting_goods_store":"Sports gear","bicycle_store":"Bikes",
+    "hardware_store":"Hardware","home_goods_store":"Home goods","pet_store":"Pet shop",
+    "toy_store":"Toys","stationery_store":"Stationery","florist":"Florist",
+    "lodging":"Hotel","hotel":"Hotel","motel":"Motel","resort_hotel":"Resort","hostel":"Hostel",
+    "bed_and_breakfast":"B&B","guest_house":"Guest house","extended_stay_hotel":"Extended stay",
+    "japanese_inn":"Ryokan","cottage":"Cottage","cabin":"Cabin","farmstay":"Farmstay",
+    "spa":"Spa","beauty_salon":"Beauty salon",
+    "hair_care":"Hair salon","hair_salon":"Hair salon","barber_shop":"Barber",
+    "nail_salon":"Nail salon","massage":"Massage","laundry":"Laundry",
+    "car_repair":"Auto repair","car_wash":"Car wash","dentist":"Dentist","doctor":"Doctor",
+    "pharmacy":"Pharmacy","drugstore":"Drugstore","veterinary_care":"Vet","hospital":"Hospital",
+    "bank":"Bank","atm":"ATM","post_office":"Post office",
 }
 
-def classify_place(place_types):
+# Cuisine map keys that should NOT also count as sub_type
+_CUISINE_KEYS = set(CUISINE_MAP.keys())
+
+def _iter_types(primary_type, types):
+    """Yield types in priority order: primary type first, then non-generic, then generic."""
+    seen = set()
+    if primary_type:
+        seen.add(primary_type); yield primary_type
+    # Non-generic first
+    for t in (types or []):
+        if t in seen or t in GENERIC_TYPES: continue
+        seen.add(t); yield t
+    # Generic last (fallback)
+    for t in (types or []):
+        if t in seen: continue
+        seen.add(t); yield t
+
+def classify_place(place_types, primary_type=""):
     intent = cuisine = sub_type = ""
-    for t in (place_types or []):
+    for t in _iter_types(primary_type, place_types):
         if not intent and t in INTENT_MAP: intent = INTENT_MAP[t]
         if not cuisine and t in CUISINE_MAP: cuisine = CUISINE_MAP[t]
-        if not sub_type and t in SUB_TYPE_MAP: sub_type = SUB_TYPE_MAP[t]
+        # Don't treat cuisine types as sub_type — cuisine has its own slot
+        if not sub_type and t in SUB_TYPE_MAP and t not in _CUISINE_KEYS:
+            sub_type = SUB_TYPE_MAP[t]
     return intent, cuisine, sub_type
 
 # ── Models ────────────────────────────────────────────────
@@ -446,7 +531,7 @@ def extract_price_level(p):
 # ── Google Places API ─────────────────────────────────────
 _F = lambda prefix: ",".join([f"{prefix}{f}" for f in [
     "id","displayName","formattedAddress","location","photos","addressComponents",
-    "types","primaryTypeDisplayName","googleMapsLinks",
+    "types","primaryType","primaryTypeDisplayName","googleMapsLinks",
     "internationalPhoneNumber","websiteUri","rating","userRatingCount","priceLevel",
     "regularOpeningHours","currentOpeningHours","editorialSummary",
     "dineIn","delivery","curbsidePickup","reservable","outdoorSeating",
@@ -470,7 +555,8 @@ def parse_place(p):
     maps_url=ml.get("placeUri","")
     if not maps_url: maps_url=f"https://www.google.com/maps/search/?api=1&query={dn.get('text','')}&query_place_id={p.get('id','')}"
     es=p.get("editorialSummary",{}); ptdn=p.get("primaryTypeDisplayName",{})
-    intent,cuisine,sub_type=classify_place(pt)
+    primary_type=p.get("primaryType","") or ""
+    intent,cuisine,sub_type=classify_place(pt, primary_type)
     return {
         "google_place_id":p.get("id",""),"name":dn.get("text",""),
         "address":p.get("formattedAddress",""),
@@ -506,6 +592,34 @@ async def static_map(lat:float,lng:float,zoom:int=15,w:int=600,h:int=300):
     if not GOOGLE_API_KEY: raise HTTPException(500,"API key not configured")
     url=f"https://maps.googleapis.com/maps/api/staticmap?center={lat},{lng}&zoom={zoom}&size={w}x{h}&markers=color:red|{lat},{lng}&key={GOOGLE_API_KEY}&style=feature:all|saturation:-30"
     return RedirectResponse(url)
+
+@app.get("/api/places/{place_id}/photo")
+async def place_photo(place_id:int, w:int=200):
+    """Stable same-origin photo for a saved place. Reuses stored photo URL or fetches fresh
+    from Google Places (covers places imported without photos). Hides the API key from the
+    client and lets the browser cache by stable URL."""
+    if not GOOGLE_API_KEY: raise HTTPException(404)
+    conn=get_db()
+    row=conn.execute("SELECT photo,google_place_id FROM places WHERE id=?",(place_id,)).fetchone()
+    conn.close()
+    if not row: raise HTTPException(404)
+    photo=row["photo"] or ""; gid=row["google_place_id"] or ""
+    if photo:
+        # Re-size on the fly — same Google photo reference, smaller payload for thumbs
+        photo=re.sub(r"maxWidthPx=\d+", f"maxWidthPx={w}", photo)
+        return RedirectResponse(photo)
+    if not gid: raise HTTPException(404)
+    headers={"Content-Type":"application/json","X-Goog-Api-Key":GOOGLE_API_KEY,"X-Goog-FieldMask":"photos"}
+    async with httpx.AsyncClient(timeout=10) as client:
+        try:
+            resp=await client.get(f"https://places.googleapis.com/v1/places/{gid}",headers=headers)
+            if resp.status_code!=200: raise HTTPException(404)
+            photos=resp.json().get("photos",[])
+        except httpx.RequestError: raise HTTPException(502)
+    if not photos: raise HTTPException(404)
+    pn=photos[0].get("name","")
+    if not pn: raise HTTPException(404)
+    return RedirectResponse(f"https://places.googleapis.com/v1/{pn}/media?maxWidthPx={w}&key={GOOGLE_API_KEY}")
 
 # ── Places CRUD ───────────────────────────────────────────
 JSON_FIELDS=["tags","auto_tags","dining","serves","amenities","payment","reviews"]
@@ -722,15 +836,24 @@ def _classify_transit(types, stype):
 async def nearby_transit(lat:float,lng:float):
     if not GOOGLE_API_KEY: return {"groups":[]}
     headers={"Content-Type":"application/json","X-Goog-Api-Key":GOOGLE_API_KEY,
-             "X-Goog-FieldMask":"places.displayName,places.location,places.types,places.primaryTypeDisplayName"}
+             "X-Goog-FieldMask":"places.displayName,places.location,places.types,places.primaryType,places.primaryTypeDisplayName"}
+    # Search per-type with rankPreference=DISTANCE so we get the nearest, not most popular
+    # bus_stop uses a tight radius — bus stops are ubiquitous, we want the *nearest*
+    type_searches=[
+        ("subway_station",1500),
+        ("light_rail_station",1500),
+        ("train_station",1500),
+        ("bus_stop",500),
+        ("bus_station",1500),
+        ("transit_station",1500),
+    ]
     raw=[]
     async with httpx.AsyncClient(timeout=10) as client:
-        for ttype in ["subway_station","light_rail_station","train_station","transit_station","bus_station","bus_stop"]:
+        for ttype, radius in type_searches:
             try:
-                # Use tighter radius for bus stops (they're everywhere), wider for rail
-                radius = 800.0 if ttype in ("bus_station","bus_stop") else 1500.0
                 resp=await client.post("https://places.googleapis.com/v1/places:searchNearby",
                     json={"includedTypes":[ttype],"maxResultCount":5,
+                          "rankPreference":"DISTANCE",
                           "locationRestriction":{"circle":{"center":{"latitude":lat,"longitude":lng},"radius":radius}}},
                     headers=headers)
                 if resp.status_code==200:
@@ -742,7 +865,8 @@ async def nearby_transit(lat:float,lng:float):
                         ptdn=p.get("primaryTypeDisplayName",{})
                         stype=ptdn.get("text","") if isinstance(ptdn,dict) else ""
                         types=p.get("types",[])
-                        category=_classify_transit(types, stype)
+                        primary=p.get("primaryType","") or ""
+                        category=_classify_transit(types+[primary], stype)
                         if any(s["name"]==name for s in raw): continue
                         raw.append({"name":name,"distance":_fmt_dist(dist),"distance_m":dist,"category":category})
             except: pass
@@ -764,6 +888,54 @@ async def nearby_transit(lat:float,lng:float):
         if cat not in order:
             result.append({"category":cat,"stations":groups[cat]})
     return {"groups":result}
+
+# ── Nearby accommodation ─────────────────────────────────
+@app.get("/api/nearby-accommodation")
+async def nearby_accommodation(lat:float,lng:float):
+    """Return up to 3 highly-rated nearby places to stay."""
+    if not GOOGLE_API_KEY: return {"places":[]}
+    headers={"Content-Type":"application/json","X-Goog-Api-Key":GOOGLE_API_KEY,
+             "X-Goog-FieldMask":"places.id,places.displayName,places.formattedAddress,places.location,"
+                                "places.rating,places.userRatingCount,places.priceLevel,places.photos,"
+                                "places.googleMapsLinks,places.primaryTypeDisplayName,places.types"}
+    found={}
+    async with httpx.AsyncClient(timeout=10) as client:
+        try:
+            # Search a broad lodging set — Google Places returns hotels, hostels, B&Bs etc under "lodging"
+            resp=await client.post("https://places.googleapis.com/v1/places:searchNearby",
+                json={"includedTypes":["lodging"],"maxResultCount":20,
+                      "locationRestriction":{"circle":{"center":{"latitude":lat,"longitude":lng},"radius":3000}}},
+                headers=headers)
+            if resp.status_code==200:
+                for p in resp.json().get("places",[]):
+                    pid=p.get("id","")
+                    if not pid or pid in found: continue
+                    loc=p.get("location",{}); dn=p.get("displayName",{})
+                    rating=p.get("rating",0) or 0
+                    rcount=p.get("userRatingCount",0) or 0
+                    # Filter weak signals — need real reviews to call it "highly recommended"
+                    if rating<4.2 or rcount<50: continue
+                    plat=loc.get("latitude",0); plng=loc.get("longitude",0)
+                    dist=_haversine(lat,lng,plat,plng)
+                    photos=p.get("photos",[]); photo_url=""
+                    if photos:
+                        pn=photos[0].get("name","")
+                        if pn: photo_url=f"https://places.googleapis.com/v1/{pn}/media?maxWidthPx=400&key={GOOGLE_API_KEY}"
+                    ptdn=p.get("primaryTypeDisplayName",{})
+                    stype=ptdn.get("text","") if isinstance(ptdn,dict) else ""
+                    ml=p.get("googleMapsLinks",{}); maps_url=ml.get("placeUri","") or \
+                        f"https://www.google.com/maps/search/?api=1&query={dn.get('text','')}&query_place_id={pid}"
+                    found[pid]={
+                        "id":pid,"name":dn.get("text",""),"address":p.get("formattedAddress",""),
+                        "lat":plat,"lng":plng,"distance":_fmt_dist(dist),"distance_m":dist,
+                        "rating":rating,"rating_count":rcount,
+                        "price_level":extract_price_level(p),"photo":photo_url,
+                        "type":stype or "Hotel","maps_url":maps_url,
+                    }
+        except: pass
+    # Rank: weighted by rating and review volume, tie-break by distance
+    items=sorted(found.values(), key=lambda x: (-(x["rating"]*min(x["rating_count"],500)/500), x["distance_m"]))
+    return {"places":items[:3]}
 
 # ── Review Highlights ────────────────────────────────────
 import re as _re

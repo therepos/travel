@@ -35,20 +35,25 @@ export default function DetailPanel({place, onClose, onDelete, onEdit, onRefresh
   const [toast,setToast] = useState(null);
   const [transport,setTransport] = useState(null);
   const [highlights,setHighlights] = useState(null);
+  const [stays,setStays] = useState(null);
   const [loadingExtra,setLoadingExtra] = useState(false);
   const mapsUrl = place.google_maps_url||`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(place.name)}`;
   const allTags = [...(place.tags||[])];
   const autoTags = [...(place.auto_tags||[])];
 
   useEffect(() => {
-    setTransport(null); setHighlights(null);
+    setTransport(null); setHighlights(null); setStays(null);
     if (!place.id) return;
     setLoadingExtra(true);
+    const hasLoc = place.lat && place.lng;
+    // Don't recommend hotels on top of a hotel
+    const wantStays = hasLoc && place.intent !== "stay";
     Promise.all([
-      place.lat && place.lng ? api(`/nearby-transit?lat=${place.lat}&lng=${place.lng}`).catch(()=>null) : null,
+      hasLoc ? api(`/nearby-transit?lat=${place.lat}&lng=${place.lng}`).catch(()=>null) : null,
       api(`/places/${place.id}/highlights`).catch(()=>null),
-    ]).then(([t,h]) => {
-      setTransport(t); setHighlights(h?.highlights||[]);
+      wantStays ? api(`/nearby-accommodation?lat=${place.lat}&lng=${place.lng}`).catch(()=>null) : null,
+    ]).then(([t,h,s]) => {
+      setTransport(t); setHighlights(h?.highlights||[]); setStays(s?.places||[]);
     }).finally(()=>setLoadingExtra(false));
   }, [place.id]);
 
@@ -166,6 +171,35 @@ export default function DetailPanel({place, onClose, onDelete, onEdit, onRefresh
           }))}
         </div>
       </div>}
+      {/* Stay nearby — top 3 highly-rated accommodations within walking distance */}
+      {stays && stays.length>0 && <div style={{marginTop:12,paddingTop:12,borderTop:`1px solid ${C.borderLight}`}}>
+        <div style={{fontSize:11,color:C.textLight,fontWeight:500,textTransform:"uppercase",letterSpacing:".4px",marginBottom:8}}>Stay nearby</div>
+        <div style={{display:"flex",flexDirection:"column",gap:6}}>
+          {stays.map(s => <a key={s.id} href={s.maps_url} target="_blank" rel="noopener"
+            style={{display:"flex",alignItems:"center",gap:10,padding:"8px 10px",borderRadius:8,background:C.surface,textDecoration:"none",cursor:"pointer",transition:"background .15s"}}
+            onMouseEnter={e=>{e.currentTarget.style.background=C.borderLight;}}
+            onMouseLeave={e=>{e.currentTarget.style.background=C.surface;}}>
+            <div style={{width:44,height:44,borderRadius:8,background:C.border,overflow:"hidden",flexShrink:0,position:"relative",display:"flex",alignItems:"center",justifyContent:"center"}}>
+              <Icon name="stay" size={18} color={C.textLight} sw={1.5} fill="none" style={{position:"absolute"}}/>
+              {s.photo && <img src={s.photo} alt="" loading="lazy" referrerPolicy="no-referrer"
+                style={{width:"100%",height:"100%",objectFit:"cover",position:"relative"}} onError={e=>{e.target.style.display="none";}}/>}
+            </div>
+            <div style={{flex:1,minWidth:0}}>
+              <div style={{fontSize:13,fontWeight:500,color:C.text,whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis"}}>{s.name}</div>
+              <div style={{display:"flex",alignItems:"center",gap:6,fontSize:11,color:C.textMid,marginTop:2}}>
+                <span style={{display:"inline-flex",alignItems:"center",gap:2}}>
+                  <Icon name="star" size={11} color={C.yellow}/>{s.rating}
+                </span>
+                <span style={{color:C.textLight}}>({s.rating_count.toLocaleString()})</span>
+                {s.price_level && <span style={{color:C.textLight}}>· {s.price_level}</span>}
+                <span style={{color:C.textLight,marginLeft:"auto"}}>{s.distance}</span>
+              </div>
+            </div>
+            <Icon name="external" size={12} color={C.textLight}/>
+          </a>)}
+        </div>
+      </div>}
+
       {loadingExtra && !highlights && <div style={{fontSize:12,color:C.textLight,marginTop:12}}>Loading details...</div>}
 
       {/* Notes */}
