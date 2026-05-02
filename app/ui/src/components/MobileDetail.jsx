@@ -35,16 +35,20 @@ export default function MobileDetail({place, onClose, onDelete, onEdit, onRefres
   const [toast,setToast] = useState(null);
   const [transport,setTransport] = useState(null);
   const [highlights,setHighlights] = useState(null);
+  const [stays,setStays] = useState(null);
   const menuBtnRef = useRef(null);
   const mapsUrl = place.google_maps_url||`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(place.name)}`;
 
   useEffect(() => {
-    setTransport(null); setHighlights(null);
+    setTransport(null); setHighlights(null); setStays(null);
     if (!place.id) return;
+    const hasLoc = place.lat && place.lng;
+    const wantStays = hasLoc && place.intent !== "stay";
     Promise.all([
-      place.lat&&place.lng ? api(`/nearby-transit?lat=${place.lat}&lng=${place.lng}`).catch(()=>null) : null,
+      hasLoc ? api(`/nearby-transit?lat=${place.lat}&lng=${place.lng}`).catch(()=>null) : null,
       api(`/places/${place.id}/highlights`).catch(()=>null),
-    ]).then(([t,h])=>{ setTransport(t); setHighlights(h?.highlights||[]); });
+      wantStays ? api(`/nearby-accommodation?lat=${place.lat}&lng=${place.lng}`).catch(()=>null) : null,
+    ]).then(([t,h,s])=>{ setTransport(t); setHighlights(h?.highlights||[]); setStays(s?.places||[]); });
   }, [place.id]);
 
   const doRefresh = async () => {
@@ -153,6 +157,33 @@ export default function MobileDetail({place, onClose, onDelete, onEdit, onRefres
                 <Icon name="external" size={14} color={C.textLight}/>
               </a>;
             }))}
+          </div>
+        </div>}
+
+        {/* Stay nearby — top 3 highly-rated accommodations */}
+        {stays && stays.length>0 && <div style={{marginTop:12,paddingTop:12,borderTop:`1px solid ${C.borderLight}`}}>
+          <div style={{fontSize:12,color:C.textLight,fontWeight:500,textTransform:"uppercase",letterSpacing:".4px",marginBottom:8}}>Stay nearby</div>
+          <div style={{display:"flex",flexDirection:"column",gap:6}}>
+            {stays.map(s => <a key={s.id} href={s.maps_url} target="_blank" rel="noopener"
+              style={{display:"flex",alignItems:"center",gap:10,padding:"10px 12px",borderRadius:10,background:C.surface,textDecoration:"none"}}>
+              <div style={{width:50,height:50,borderRadius:8,background:C.border,overflow:"hidden",flexShrink:0,display:"flex",alignItems:"center",justifyContent:"center",position:"relative"}}>
+                <Icon name="stay" size={20} color={C.textLight} sw={1.5} fill="none" style={{position:"absolute"}}/>
+                {s.photo && <img src={s.photo} alt="" loading="lazy" referrerPolicy="no-referrer"
+                  style={{width:"100%",height:"100%",objectFit:"cover",position:"relative"}} onError={e=>{e.target.style.display="none";}}/>}
+              </div>
+              <div style={{flex:1,minWidth:0}}>
+                <div style={{fontSize:14,fontWeight:500,color:C.text,whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis"}}>{s.name}</div>
+                <div style={{display:"flex",alignItems:"center",gap:6,fontSize:12,color:C.textMid,marginTop:2}}>
+                  <span style={{display:"inline-flex",alignItems:"center",gap:2}}>
+                    <Icon name="star" size={12} color={C.yellow}/>{s.rating}
+                  </span>
+                  <span style={{color:C.textLight}}>({s.rating_count.toLocaleString()})</span>
+                  {s.price_level && <span style={{color:C.textLight}}>· {s.price_level}</span>}
+                  <span style={{color:C.textLight,marginLeft:"auto"}}>{s.distance}</span>
+                </div>
+              </div>
+              <Icon name="external" size={14} color={C.textLight}/>
+            </a>)}
           </div>
         </div>}
 

@@ -1,6 +1,34 @@
 import { useState, useRef, useCallback } from "react";
 import { C, Icon, Tag, Stars } from "../shared.jsx";
 
+// Stable hash-based color so the same place keeps the same placeholder hue
+const PLACEHOLDER_COLORS = ["#1A73E8","#34A853","#FBBC04","#EA4335","#5E35B1","#E8710A","#0F9D58","#1967D2"];
+const colorFor = (s) => {
+  let h = 0; for (let i=0;i<(s||"").length;i++) h = (h*31 + s.charCodeAt(i)) >>> 0;
+  return PLACEHOLDER_COLORS[h % PLACEHOLDER_COLORS.length];
+};
+
+function Thumb({place, size}) {
+  const [loaded, setLoaded] = useState(false);
+  const [failed, setFailed] = useState(false);
+  // Prefer the same-origin proxy when we have a google_place_id — works for
+  // places imported without a photo and stays small for thumbnails.
+  const src = place.google_place_id
+    ? `/api/places/${place.id}/photo?w=${size*2}`
+    : (place.photo || "");
+  const bg = colorFor(place.name || "?");
+  const initial = (place.name||"?").trim().charAt(0).toUpperCase();
+  return <div style={{width:size,height:size,borderRadius:size>=72?12:8,flexShrink:0,
+      background:bg,overflow:"hidden",position:"relative",
+      display:"flex",alignItems:"center",justifyContent:"center",color:"#fff"}}>
+    <span style={{fontSize:size*0.42,fontWeight:500,lineHeight:1}}>{initial}</span>
+    {src && !failed && <img src={src} alt="" loading="lazy" referrerPolicy="no-referrer"
+      onLoad={()=>setLoaded(true)} onError={()=>setFailed(true)}
+      style={{position:"absolute",inset:0,width:"100%",height:"100%",objectFit:"cover",
+        opacity:loaded?1:0,transition:"opacity .15s"}}/>}
+  </div>;
+}
+
 function SwipeableRow({children, onSwipeLeft, onSwipeRight, isMobile, disabled}) {
   const ref = useRef(null);
   const startX = useRef(0);
@@ -114,9 +142,7 @@ export default function PlaceList({grouped, filtered, loading, selectedId, onPla
             background:isBulkSel?C.blue:"#fff",display:"flex",alignItems:"center",justifyContent:"center",flexShrink:0,transition:"all .15s"}}>
             {isBulkSel && <Icon name="check" size={14} color="#fff" sw={2.5}/>}
           </div>}
-          <div style={{width:isMobile?72:48,height:isMobile?72:48,borderRadius:isMobile?12:8,flexShrink:0,background:C.border,overflow:"hidden"}}>
-            {p.photo && <img src={p.photo} alt="" style={{width:"100%",height:"100%",objectFit:"cover"}} onError={e=>{e.target.style.display="none"}}/>}
-          </div>
+          <Thumb place={p} size={isMobile?72:48}/>
           <div style={{flex:1,minWidth:0}}>
             <div style={{fontSize:isMobile?17:14,fontWeight:isMobile?400:500,whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis"}}>{p.name}</div>
             <div style={{fontSize:isMobile?14:12,color:C.textMid,marginTop:isMobile?3:2}}>{p.place_type||p.sub_type||p.cuisine||""}{p.district?` · ${p.district}`:""}</div>
