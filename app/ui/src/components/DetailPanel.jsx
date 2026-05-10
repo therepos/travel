@@ -1,5 +1,6 @@
 import { useState, useEffect } from "react";
 import { C, Icon, Stars, Tag, ActionPill, InfoRow, api } from "../shared.jsx";
+import GalleryStrip from "./GalleryStrip.jsx";
 
 const HIGHLIGHT_COLORS = {
   summary: {bg:"#f0f4ff",color:"#1a56db",border:"#d0daf8"},
@@ -69,16 +70,7 @@ export default function DetailPanel({place, onClose, onDelete, onEdit, onRefresh
   const otherHighlights = (highlights||[]).filter(h=>h.type!=="summary");
 
   return <div style={{flex:1,overflow:"auto",minWidth:0,borderLeft:`1px solid ${C.border}`,display:"flex",flexDirection:"column"}}>
-    {/* Map */}
-    <div style={{height:200,background:"#e8eaed",position:"relative",flexShrink:0}}>
-      <img src={`/api/staticmap?lat=${place.lat}&lng=${place.lng}&zoom=15&w=600&h=300`} alt=""
-        style={{width:"100%",height:"100%",objectFit:"cover"}} onError={e=>{e.target.style.display="none"}}/>
-      <button onClick={onClose} style={{position:"absolute",top:10,right:10,width:32,height:32,background:"#fff",border:"none",borderRadius:"50%",display:"flex",alignItems:"center",justifyContent:"center",cursor:"pointer",boxShadow:"0 1px 3px rgba(0,0,0,.15)",transition:"background .15s"}}
-        onMouseEnter={e=>{e.currentTarget.style.background=C.surface;}}
-        onMouseLeave={e=>{e.currentTarget.style.background="#fff";}}>
-        <Icon name="x" size={16} sw={2.5}/>
-      </button>
-    </div>
+    <GalleryStrip place={place} onClose={onClose}/>
 
     <div style={{padding:"16px 24px",flex:1}}>
       <div style={{fontSize:20,fontWeight:500,marginBottom:3}}>{place.name}</div>

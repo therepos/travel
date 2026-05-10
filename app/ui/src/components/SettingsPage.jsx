@@ -6,6 +6,9 @@ export default function SettingsPage({isMobile, user, onLogout, onUserUpdate}) {
   const [importing,setImporting] = useState(false);
   const [importResult,setImportResult] = useState(null);
 
+  // Refresh-all state
+  const [refreshAll,setRefreshAll] = useState(null); // null | {total, done, failed} | "done"
+
   const [editingField,setEditingField] = useState(null);
   const [fieldValue,setFieldValue] = useState("");
   const [fieldError,setFieldError] = useState("");
@@ -46,6 +49,30 @@ export default function SettingsPage({isMobile, user, onLogout, onUserUpdate}) {
       setImporting(false);
     };
     input.click();
+  };
+
+  const handleRefreshAll = async () => {
+    if (!confirm("Refresh data for every saved place from Google? This may take a while and consumes Google API quota.")) return;
+    let places = [];
+    try { const d = await api("/places"); places = (d.places||[]).filter(p=>p.google_place_id); }
+    catch(e) { setRefreshAll({error:e.message||"Failed to load places"}); return; }
+    if (places.length === 0) { setRefreshAll({error:"No places with Google references to refresh"}); return; }
+
+    let done = 0, failed = 0;
+    setRefreshAll({total:places.length, done, failed});
+    const queue = [...places];
+    const worker = async () => {
+      while (queue.length) {
+        const p = queue.shift();
+        try { await api(`/places/${p.id}/refresh`, {method:"POST"}); }
+        catch { failed++; }
+        done++;
+        setRefreshAll({total:places.length, done, failed});
+      }
+    };
+    await Promise.all([worker(), worker(), worker(), worker()]);
+    setRefreshAll({total:places.length, done, failed, finished:true});
+    setTimeout(() => window.location.reload(), 1500);
   };
 
   const handleDeleteAll = async () => {
@@ -347,7 +374,7 @@ export default function SettingsPage({isMobile, user, onLogout, onUserUpdate}) {
     {/* API */}
     <div style={S.section}>
       <div style={S.sectionTitle}>Google Places API</div>
-      <div style={{...S.row,borderBottom:"none"}}>
+      <div style={S.row}>
         <div style={{...S.icon,background:"#fef7e0"}}><Icon name="lock" size={m?16:14} color="#b06000"/></div>
         <div style={{flex:1}}>
           <div style={S.label}>API key</div>
@@ -357,6 +384,26 @@ export default function SettingsPage({isMobile, user, onLogout, onUserUpdate}) {
             <span style={{color:C.green,fontWeight:500}}>Connected</span>
           </div>
         </div>
+      </div>
+      <div style={{...S.row,borderBottom:"none"}}>
+        <div style={{...S.icon,background:C.blueBg}}><Icon name="refresh" size={m?16:14} color={C.blue}/></div>
+        <div style={{flex:1}}>
+          <div style={S.label}>Refresh all places</div>
+          <div style={S.desc}>Re-fetch ratings, photos, hours and tags from Google for every saved place. Useful after upgrades.</div>
+          {refreshAll && !refreshAll.error && !refreshAll.finished && <div style={{marginTop:8}}>
+            <div style={{height:4,background:C.borderLight,borderRadius:2,overflow:"hidden"}}>
+              <div style={{height:"100%",background:C.blue,width:`${Math.round(refreshAll.done/refreshAll.total*100)}%`,transition:"width .2s"}}/>
+            </div>
+            <div style={{fontSize:m?13:12,color:C.textMid,marginTop:6}}>
+              Refreshed {refreshAll.done} of {refreshAll.total}{refreshAll.failed>0?` · ${refreshAll.failed} failed`:""}
+            </div>
+          </div>}
+          {refreshAll?.finished && <div style={S.success}>
+            Refreshed {refreshAll.done - refreshAll.failed} of {refreshAll.total}{refreshAll.failed>0?` (${refreshAll.failed} failed)`:""} · reloading…
+          </div>}
+          {refreshAll?.error && <div style={S.error}>{refreshAll.error}</div>}
+        </div>
+        {(!refreshAll || refreshAll.error || refreshAll.finished) && <button onClick={handleRefreshAll} style={S.btn}>Refresh</button>}
       </div>
     </div>
 

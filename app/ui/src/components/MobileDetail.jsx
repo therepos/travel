@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef } from "react";
 import { C, Icon, Stars, Tag, ActionPill, InfoRow, api } from "../shared.jsx";
+import GalleryStrip from "./GalleryStrip.jsx";
 
 const HIGHLIGHT_COLORS = {
   summary: {bg:"#f0f4ff",color:"#1a56db",border:"#d0daf8"},
@@ -78,10 +79,7 @@ export default function MobileDetail({place, onClose, onDelete, onEdit, onRefres
     </div>
 
     <div style={{flex:1,overflowY:"auto"}}>
-      <div style={{height:220,background:"#e8eaed",flexShrink:0}}>
-        <img src={`/api/staticmap?lat=${place.lat}&lng=${place.lng}&zoom=15&w=600&h=400`} alt=""
-          style={{width:"100%",height:"100%",objectFit:"cover"}} onError={e=>{e.target.style.display="none"}}/>
-      </div>
+      <GalleryStrip place={place} isMobile={true}/>
 
       <div style={{padding:"16px 20px 24px"}}>
         <div style={{fontSize:22,fontWeight:500,marginBottom:3}}>{place.name}</div>

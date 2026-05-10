@@ -46,6 +46,7 @@ def init_db():
         name TEXT NOT NULL, address TEXT DEFAULT '', country TEXT DEFAULT '',
         city TEXT DEFAULT '', district TEXT DEFAULT '', region TEXT DEFAULT '',
         lat REAL NOT NULL, lng REAL NOT NULL, photo TEXT DEFAULT '',
+        photos TEXT DEFAULT '[]',
         tags TEXT DEFAULT '[]', auto_tags TEXT DEFAULT '[]', notes TEXT DEFAULT '',
         google_place_id TEXT DEFAULT '', google_maps_url TEXT DEFAULT '',
         phone TEXT DEFAULT '', website TEXT DEFAULT '',
@@ -86,7 +87,8 @@ def init_db():
         ("amenities","TEXT DEFAULT '[]'"),("auto_tags","TEXT DEFAULT '[]'"),
         ("place_type","TEXT DEFAULT ''"),("payment","TEXT DEFAULT '[]'"),
         ("reviews","TEXT DEFAULT '[]'"),("intent","TEXT DEFAULT ''"),
-        ("cuisine","TEXT DEFAULT ''"),("sub_type","TEXT DEFAULT ''")]:
+        ("cuisine","TEXT DEFAULT ''"),("sub_type","TEXT DEFAULT ''"),
+        ("photos","TEXT DEFAULT '[]'")]:
         if col not in existing:
             conn.execute(f"ALTER TABLE places ADD COLUMN {col} {typedef}")
     conn.commit(); conn.close()
@@ -247,7 +249,7 @@ def classify_place(place_types, primary_type=""):
 # ── Models ────────────────────────────────────────────────
 class PlaceCreate(BaseModel):
     name:str; address:str=""; country:str=""; city:str=""; district:str=""
-    region:str=""; lat:float; lng:float; photo:str=""
+    region:str=""; lat:float; lng:float; photo:str=""; photos:list[str]=[]
     tags:list[str]=[]; auto_tags:list[str]=[]; notes:str=""
     google_place_id:str=""; google_maps_url:str=""
     phone:str=""; website:str=""; rating:float=0; rating_count:int=0
@@ -547,10 +549,10 @@ def parse_place(p):
     loc=p.get("location",{}); dn=p.get("displayName",{}); pt=p.get("types",[])
     addr=extract_address_parts(p.get("addressComponents",[]))
     photos=p.get("photos",[])
+    photo_names=[ph.get("name","") for ph in photos[:10] if ph.get("name")]
     photo_url=""
-    if photos:
-        pn=photos[0].get("name","")
-        if pn: photo_url=f"https://places.googleapis.com/v1/{pn}/media?maxWidthPx=800&key={GOOGLE_API_KEY}"
+    if photo_names:
+        photo_url=f"https://places.googleapis.com/v1/{photo_names[0]}/media?maxWidthPx=800&key={GOOGLE_API_KEY}"
     ml=p.get("googleMapsLinks",{})
     maps_url=ml.get("placeUri","")
     if not maps_url: maps_url=f"https://www.google.com/maps/search/?api=1&query={dn.get('text','')}&query_place_id={p.get('id','')}"
@@ -561,7 +563,8 @@ def parse_place(p):
         "google_place_id":p.get("id",""),"name":dn.get("text",""),
         "address":p.get("formattedAddress",""),
         "country":addr["country"],"city":addr["city"],"district":addr["district"],"region":addr["region"],
-        "lat":loc.get("latitude",0),"lng":loc.get("longitude",0),"photo":photo_url,
+        "lat":loc.get("latitude",0),"lng":loc.get("longitude",0),
+        "photo":photo_url,"photos":photo_names,
         "auto_tags":extract_auto_tags(pt),
         "place_type":ptdn.get("text","") if isinstance(ptdn,dict) else "",
         "google_maps_url":maps_url,"phone":p.get("internationalPhoneNumber",""),
@@ -594,35 +597,40 @@ async def static_map(lat:float,lng:float,zoom:int=15,w:int=600,h:int=300):
     return RedirectResponse(url)
 
 @app.get("/api/places/{place_id}/photo")
-async def place_photo(place_id:int, w:int=200):
-    """Stable same-origin photo for a saved place. Reuses stored photo URL or fetches fresh
-    from Google Places (covers places imported without photos). Hides the API key from the
-    client and lets the browser cache by stable URL."""
+async def place_photo(place_id:int, w:int=200, i:int=0):
+    """Stable same-origin photo for a saved place. ?i=N picks the Nth photo
+    (0-based). Falls back to a fresh Google Places fetch if the photos array
+    is empty (covers places imported without photos)."""
     if not GOOGLE_API_KEY: raise HTTPException(404)
     conn=get_db()
-    row=conn.execute("SELECT photo,google_place_id FROM places WHERE id=?",(place_id,)).fetchone()
+    row=conn.execute("SELECT photo,photos,google_place_id FROM places WHERE id=?",(place_id,)).fetchone()
     conn.close()
     if not row: raise HTTPException(404)
-    photo=row["photo"] or ""; gid=row["google_place_id"] or ""
-    if photo:
-        # Re-size on the fly — same Google photo reference, smaller payload for thumbs
-        photo=re.sub(r"maxWidthPx=\d+", f"maxWidthPx={w}", photo)
-        return RedirectResponse(photo)
-    if not gid: raise HTTPException(404)
-    headers={"Content-Type":"application/json","X-Goog-Api-Key":GOOGLE_API_KEY,"X-Goog-FieldMask":"photos"}
-    async with httpx.AsyncClient(timeout=10) as client:
-        try:
-            resp=await client.get(f"https://places.googleapis.com/v1/places/{gid}",headers=headers)
-            if resp.status_code!=200: raise HTTPException(404)
-            photos=resp.json().get("photos",[])
-        except httpx.RequestError: raise HTTPException(502)
-    if not photos: raise HTTPException(404)
-    pn=photos[0].get("name","")
-    if not pn: raise HTTPException(404)
-    return RedirectResponse(f"https://places.googleapis.com/v1/{pn}/media?maxWidthPx={w}&key={GOOGLE_API_KEY}")
+    legacy=row["photo"] or ""; gid=row["google_place_id"] or ""
+    try: names=json.loads(row["photos"] or "[]")
+    except: names=[]
+    # Backfill from legacy `photo` URL if photos array is empty (extract photo name from URL)
+    if not names and legacy:
+        m=re.search(r"/v1/(places/[^/]+/photos/[^/]+)/media", legacy)
+        if m: names=[m.group(1)]
+    # Direct hit on the photos array
+    if i < len(names):
+        return RedirectResponse(f"https://places.googleapis.com/v1/{names[i]}/media?maxWidthPx={w}&key={GOOGLE_API_KEY}")
+    # i=0 fallback: fetch fresh from Google for places imported without any photo
+    if i==0 and gid:
+        headers={"Content-Type":"application/json","X-Goog-Api-Key":GOOGLE_API_KEY,"X-Goog-FieldMask":"photos"}
+        async with httpx.AsyncClient(timeout=10) as client:
+            try:
+                resp=await client.get(f"https://places.googleapis.com/v1/places/{gid}",headers=headers)
+                if resp.status_code!=200: raise HTTPException(404)
+                fresh=resp.json().get("photos",[])
+            except httpx.RequestError: raise HTTPException(502)
+        if fresh and fresh[0].get("name"):
+            return RedirectResponse(f"https://places.googleapis.com/v1/{fresh[0]['name']}/media?maxWidthPx={w}&key={GOOGLE_API_KEY}")
+    raise HTTPException(404)
 
 # ── Places CRUD ───────────────────────────────────────────
-JSON_FIELDS=["tags","auto_tags","dining","serves","amenities","payment","reviews"]
+JSON_FIELDS=["tags","auto_tags","dining","serves","amenities","payment","reviews","photos"]
 
 def row_to_place(row):
     d=dict(row)
@@ -642,12 +650,13 @@ def create_place(place:PlaceCreate, request: Request):
     uid = user["id"] if user else 0
     conn=get_db(); saved=place.saved or date.today().isoformat()
     cursor=conn.execute(
-        """INSERT INTO places (user_id,name,address,country,city,district,region,lat,lng,photo,tags,auto_tags,notes,
+        """INSERT INTO places (user_id,name,address,country,city,district,region,lat,lng,photo,photos,tags,auto_tags,notes,
            google_place_id,google_maps_url,phone,website,rating,rating_count,price_level,hours,
            editorial_summary,dining,serves,amenities,place_type,payment,reviews,intent,cuisine,sub_type,saved)
-           VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)""",
+           VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)""",
         (uid,place.name,place.address,place.country,place.city,place.district,place.region,
-         place.lat,place.lng,place.photo,json.dumps(place.tags),json.dumps(place.auto_tags),
+         place.lat,place.lng,place.photo,json.dumps(place.photos),
+         json.dumps(place.tags),json.dumps(place.auto_tags),
          place.notes,place.google_place_id,place.google_maps_url,place.phone,place.website,
          place.rating,place.rating_count,place.price_level,place.hours,place.editorial_summary,
          json.dumps(place.dining),json.dumps(place.serves),json.dumps(place.amenities),
@@ -700,12 +709,13 @@ async def refresh_place(place_id:int, request: Request):
             conn.close(); raise HTTPException(502,str(e))
     fresh=parse_place(resp.json())
     conn.execute(
-        """UPDATE places SET name=?,address=?,country=?,city=?,district=?,region=?,lat=?,lng=?,photo=?,
+        """UPDATE places SET name=?,address=?,country=?,city=?,district=?,region=?,lat=?,lng=?,photo=?,photos=?,
            auto_tags=?,google_maps_url=?,phone=?,website=?,rating=?,rating_count=?,price_level=?,hours=?,
            editorial_summary=?,dining=?,serves=?,amenities=?,place_type=?,payment=?,reviews=?,
            intent=?,cuisine=?,sub_type=? WHERE id=?""",
         (fresh["name"],fresh["address"],fresh["country"],fresh["city"],fresh["district"],fresh["region"],
-         fresh["lat"],fresh["lng"],fresh["photo"],json.dumps(fresh["auto_tags"]),fresh["google_maps_url"],
+         fresh["lat"],fresh["lng"],fresh["photo"],json.dumps(fresh.get("photos",[])),
+         json.dumps(fresh["auto_tags"]),fresh["google_maps_url"],
          fresh["phone"],fresh["website"],fresh["rating"],fresh["rating_count"],fresh["price_level"],
          fresh["hours"],fresh["editorial_summary"],json.dumps(fresh["dining"]),json.dumps(fresh["serves"]),
          json.dumps(fresh["amenities"]),fresh["place_type"],json.dumps(fresh["payment"]),
@@ -1097,12 +1107,13 @@ async def import_json(file:UploadFile=File(...)):
         if _dup_check(conn,p.get("lat",0),p.get("lng",0),p.get("name",""),p.get("google_place_id","")): continue
         saved=p.get("saved") or date.today().isoformat()
         conn.execute(
-            """INSERT INTO places (name,address,country,city,district,region,lat,lng,photo,tags,auto_tags,notes,
+            """INSERT INTO places (name,address,country,city,district,region,lat,lng,photo,photos,tags,auto_tags,notes,
                google_place_id,google_maps_url,phone,website,rating,rating_count,price_level,hours,
                editorial_summary,dining,serves,amenities,place_type,payment,reviews,intent,cuisine,sub_type,saved)
-               VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)""",
+               VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)""",
             (p.get("name",""),p.get("address",""),p.get("country",""),p.get("city",""),p.get("district",""),
              p.get("region",""),p.get("lat",0),p.get("lng",0),p.get("photo",""),
+             json.dumps(p.get("photos",[])),
              json.dumps(p.get("tags",[])),json.dumps(p.get("auto_tags",[])),p.get("notes",""),
              p.get("google_place_id",""),p.get("google_maps_url",""),p.get("phone",""),p.get("website",""),
              p.get("rating",0),p.get("rating_count",0),p.get("price_level",""),p.get("hours",""),
