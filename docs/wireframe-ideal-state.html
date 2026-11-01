@@ -1,0 +1,186 @@
+<!DOCTYPE html>
+<html lang="en"><head><meta charset="utf-8"><title>Travel — ideal state wireframe</title>
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:-apple-system,"Segoe UI",Helvetica,Arial,sans-serif;background:#ececec;color:#222;padding:32px}
+h1{font-size:20px;margin-bottom:6px}
+.sub{color:#666;font-size:13px;margin-bottom:28px}
+h2{font-size:14px;text-transform:uppercase;letter-spacing:.6px;color:#555;margin:36px 0 14px}
+.row{display:flex;gap:28px;flex-wrap:wrap;align-items:flex-start}
+.phone{width:260px;background:#fff;border:2px solid #333;border-radius:22px;padding:10px 10px 8px;position:relative}
+.phone .lbl{position:absolute;top:-22px;left:0;font-size:12px;color:#444;font-weight:600}
+.phone .screen{border:1px dashed #bbb;border-radius:14px;height:500px;display:flex;flex-direction:column;overflow:hidden}
+.bar{height:38px;border-bottom:1px solid #ccc;display:flex;align-items:center;padding:0 10px;gap:8px;font-size:12px;font-weight:600;flex-shrink:0}
+.bar .r{margin-left:auto;font-weight:400;color:#777}
+.search{margin:8px;height:32px;border:1px solid #999;border-radius:16px;display:flex;align-items:center;padding:0 10px;font-size:11px;color:#888;flex-shrink:0}
+.chips{display:flex;gap:6px;padding:0 8px 6px;flex-shrink:0;overflow:hidden}
+.chip{border:1px solid #999;border-radius:12px;padding:3px 8px;font-size:10px;white-space:nowrap}
+.chip.on{background:#333;color:#fff;border-color:#333}
+.list{flex:1;overflow:hidden;padding:0 8px}
+.item{display:flex;align-items:center;gap:8px;padding:8px 4px;border-bottom:1px solid #e3e3e3;font-size:12px}
+.item .th{width:34px;height:34px;background:#ddd;border-radius:6px;flex-shrink:0}
+.item .th.lg{width:44px;height:44px}
+.item .t{flex:1}
+.item .t small{display:block;color:#777;font-size:10px;margin-top:2px}
+.item .n{color:#777;font-size:11px}
+.item .chev{color:#aaa}
+.sect{font-size:10px;text-transform:uppercase;color:#888;letter-spacing:.5px;padding:10px 4px 2px}
+.fab{position:absolute;right:20px;bottom:64px;width:44px;height:44px;border-radius:50%;background:#333;color:#fff;display:flex;align-items:center;justify-content:center;font-size:22px}
+.tabs{height:44px;border-top:1px solid #ccc;display:flex;flex-shrink:0}
+.tabs div{flex:1;display:flex;align-items:center;justify-content:center;font-size:10px;color:#777}
+.tabs div.on{color:#111;font-weight:600}
+.hero{height:120px;background:#ddd;flex-shrink:0;display:flex;align-items:flex-end;padding:8px;font-size:11px;color:#555}
+.pad{padding:8px 10px;font-size:11px;color:#444;line-height:1.5}
+.pad b{display:block;font-size:14px;color:#111;margin-bottom:2px}
+.btnrow{display:flex;gap:6px;padding:6px 10px}
+.btn{flex:1;border:1px solid #333;border-radius:8px;padding:7px 0;text-align:center;font-size:11px}
+.btn.pri{background:#333;color:#fff}
+.sheet{margin-top:auto;border-top:2px solid #333;background:#fafafa;padding:10px}
+.sheet .h{font-size:11px;font-weight:600;margin-bottom:6px}
+.note{font-size:10px;color:#888;padding:4px 10px}
+.annot{font-size:11px;color:#555;max-width:260px;margin-top:10px;line-height:1.5}
+.ig{background:#222;color:#ddd;flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;font-size:11px;gap:6px}
+.ig .post{width:200px;height:200px;background:#555;border-radius:4px}
+.ig .cap{width:200px;font-size:10px;color:#bbb}
+.toast{position:absolute;left:30px;right:30px;bottom:80px;background:#333;color:#fff;font-size:11px;padding:8px 10px;border-radius:8px;text-align:center}
+/* desktop */
+.desk{width:980px;background:#fff;border:2px solid #333;border-radius:10px;overflow:hidden;position:relative}
+.desk .lbl{position:absolute;top:-22px;left:0;font-size:12px;color:#444;font-weight:600}
+.dtop{height:48px;border-bottom:1px solid #ccc;display:flex;align-items:center;padding:0 16px;gap:16px;font-size:13px}
+.dtop .ds{flex:1;max-width:460px;height:30px;border:1px solid #999;border-radius:15px;display:flex;align-items:center;padding:0 10px;font-size:11px;color:#888}
+.dtop .av{margin-left:auto;width:28px;height:28px;border-radius:50%;background:#555}
+.dbody{display:flex;height:520px}
+.dcol{border-right:1px solid #ccc;display:flex;flex-direction:column;overflow:hidden}
+.dcol:last-child{border-right:none}
+.d1{width:220px}.d2{width:340px}.d3{flex:1}
+.dh{padding:10px 14px;font-size:11px;color:#777;border-bottom:1px solid #eee;display:flex;align-items:center}
+.dh .b{margin-left:auto;border:1px solid #333;border-radius:12px;padding:2px 10px;font-size:11px;color:#111}
+.tree div{padding:6px 14px;font-size:12px;display:flex}
+.tree div span{margin-left:auto;color:#999;font-size:11px}
+.tree .c{padding-left:28px;color:#444}
+.tree .on{background:#e8e8e8;font-weight:600}
+.tree .g{font-size:10px;text-transform:uppercase;color:#999;letter-spacing:.5px;padding-top:12px}
+.d3 .hero{height:180px}
+.cols2{display:flex;gap:16px;padding:0 10px}
+.cols2 > div{flex:1;font-size:11px;color:#444;line-height:1.6}
+.wrap{display:flex;gap:28px;flex-wrap:wrap}
+.legend{font-size:11px;color:#666;margin-top:40px;border-top:1px solid #ccc;padding-top:12px;line-height:1.7}
+</style></head><body>
+<h1>Travel — ideal state (wireframe)</h1>
+<div class="sub">One loop: capture a place in 2 taps → it files itself under its city → when you plan a trip, open the city. Everything else is secondary or gone.</div>
+
+<h2>Mobile · the main loop</h2>
+<div class="row">
+
+<div><div class="phone"><div class="lbl">1 · Home = your cities</div><div class="screen">
+<div class="bar">Travel <span class="r">◯</span></div>
+<div class="search">🔍 Search places, or paste a link…</div>
+<div class="list">
+  <div class="sect">Asia</div>
+  <div class="item"><div class="th"></div><div class="t">Shanghai<small>China · last added 3d ago</small></div><div class="n">12</div><div class="chev">›</div></div>
+  <div class="item"><div class="th"></div><div class="t">Tokyo<small>Japan</small></div><div class="n">31</div><div class="chev">›</div></div>
+  <div class="item"><div class="th"></div><div class="t">Bangkok<small>Thailand</small></div><div class="n">7</div><div class="chev">›</div></div>
+  <div class="sect">Europe</div>
+  <div class="item"><div class="th"></div><div class="t">Lisbon<small>Portugal</small></div><div class="n">5</div><div class="chev">›</div></div>
+  <div class="item"><div class="th"></div><div class="t">Paris<small>France</small></div><div class="n">18</div><div class="chev">›</div></div>
+  <div class="sect">&nbsp;</div>
+  <div class="item" style="border:none"><div class="t" style="color:#888">Recently saved →</div></div>
+</div>
+<div class="fab">+</div>
+<div class="tabs"><div class="on">Cities</div><div>Recent</div><div>Settings</div></div>
+</div></div>
+<div class="annot">No category chips on the home screen. The question the app answers is "where", so the first level is always the city. Counts tell you how much you have saved for a trip.</div></div>
+
+<div><div class="phone"><div class="lbl">2 · City view</div><div class="screen">
+<div class="bar">‹ &nbsp;Shanghai <span class="r">12 · ⋯</span></div>
+<div class="chips"><div class="chip on">All</div><div class="chip">Eat 6</div><div class="chip">See 3</div><div class="chip">Shop 2</div><div class="chip">Stay 1</div></div>
+<div class="chips"><div class="chip">☐ Map</div><div class="chip">must visit</div><div class="chip">date night</div></div>
+<div class="list">
+  <div class="sect">French Concession · 4</div>
+  <div class="item"><div class="th lg"></div><div class="t">Fu He Hui<small>Vegetarian · $$$ · ★4.6</small><small>“tasting menu, book ahead” — from IG</small></div></div>
+  <div class="item"><div class="th lg"></div><div class="t">Shanghai Propaganda Poster Centre<small>Museum · ★4.4</small></div></div>
+  <div class="item"><div class="th lg"></div><div class="t">RAC Bar<small>Café · ★4.5</small><small>“best crêpes” — from IG</small></div></div>
+  <div class="sect">The Bund · 3</div>
+  <div class="item"><div class="th lg"></div><div class="t">Rockbund Art Museum<small>Museum · ★4.5</small></div></div>
+  <div class="item"><div class="th lg"></div><div class="t">Lost Heaven<small>Yunnan · $$ · ★4.3</small></div></div>
+</div>
+<div class="btnrow"><div class="btn pri">Open all in Google Maps</div></div>
+<div class="tabs"><div class="on">Cities</div><div>Recent</div><div>Settings</div></div>
+</div></div>
+<div class="annot">Grouped by district so a day in one neighbourhood is obvious. Intent and tag chips are the secondary filter. "Open all in Google Maps" replaces the route planner for the 90% case.</div></div>
+
+<div><div class="phone"><div class="lbl">3 · Capture from Instagram</div><div class="screen">
+<div class="ig"><div class="post"></div><div class="cap">@shanghaifoodie · “Fu He Hui is the best vegetarian tasting menu in Shanghai, book ahead…”</div><div style="margin-top:6px">⤴ Share → <b>Travel</b></div></div>
+<div class="sheet">
+  <div class="h">Save to Travel</div>
+  <div class="search" style="margin:0 0 6px;color:#222">Fu He Hui Shanghai</div>
+  <div class="item"><div class="th"></div><div class="t">Fu He Hui<small>Yuyuan Rd, Shanghai · ★4.6</small></div><div class="chip on">Save</div></div>
+  <div class="item" style="border:none"><div class="th"></div><div class="t">Fu He Hui (Pudong)<small>Shanghai · ★4.3</small></div><div class="chip">Save</div></div>
+  <div class="note">Caption kept as note · tags later</div>
+</div>
+</div></div>
+<div class="annot">PWA share target. Shared text or link pre-fills the search; proper nouns are extracted from the caption. The caption is stored as the note so you remember why you saved it. Two taps total.</div></div>
+
+<div><div class="phone"><div class="lbl">4 · Place</div><div class="screen">
+<div class="bar">‹ <span class="r">⤴ &nbsp;✎ &nbsp;⋯</span></div>
+<div class="hero">▢ ▢ ▢ photos</div>
+<div class="pad"><b>Fu He Hui</b>Vegetarian · $$$ · ★4.6 (1,240)<br>Shanghai › French Concession</div>
+<div class="btnrow"><div class="btn pri">Directions</div><div class="btn">Website</div><div class="btn">Call</div></div>
+<div class="pad" style="border-top:1px solid #eee"><span style="color:#888">NOTE</span><br>“best vegetarian tasting menu in Shanghai, book ahead” — saved from Instagram, 3d ago</div>
+<div class="pad" style="border-top:1px solid #eee"><span style="color:#888">TAGS</span><br><span class="chip">must visit</span> <span class="chip">date night</span> <span class="chip">+</span></div>
+<div class="pad" style="border-top:1px solid #eee"><span style="color:#888">HOURS</span><br>Tue–Sun 11:30–14:00, 17:30–22:00</div>
+<div class="pad" style="border-top:1px solid #eee;color:#888">Address · Phone · Google rating ›</div>
+<div class="tabs"><div class="on">Cities</div><div>Recent</div><div>Settings</div></div>
+</div></div>
+<div class="annot">Your note is above the fold, because that is the thing Google cannot tell you. No nearby transit, no nearby hotels, no review mining. Directions opens Google Maps, which does all that better.</div></div>
+
+</div>
+
+<h2>Desktop · same model, three columns</h2>
+<div class="wrap"><div class="desk"><div class="lbl">Desktop ≥ 900px</div>
+<div class="dtop"><b>Travel</b><div class="ds">🔍 Search places, or paste a Google Maps / Instagram link…</div><div class="av"></div></div>
+<div class="dbody">
+ <div class="dcol d1"><div class="dh">Cities<span class="b">+ Add</span></div>
+  <div class="tree">
+   <div class="g">Asia</div>
+   <div class="on">Shanghai <span>12</span></div>
+   <div class="c on" style="background:#f0f0f0;font-weight:400">French Concession <span>4</span></div>
+   <div class="c">The Bund <span>3</span></div>
+   <div class="c">Pudong <span>5</span></div>
+   <div>Tokyo <span>31</span></div>
+   <div>Bangkok <span>7</span></div>
+   <div class="g">Europe</div>
+   <div>Lisbon <span>5</span></div>
+   <div>Paris <span>18</span></div>
+   <div class="g">Tags</div>
+   <div class="c">must visit <span>9</span></div>
+   <div class="c">date night <span>4</span></div>
+  </div></div>
+ <div class="dcol d2"><div class="dh">Shanghai · 12 <span class="b">Open all in Maps</span></div>
+  <div class="chips" style="padding:8px"><div class="chip on">All</div><div class="chip">Eat 6</div><div class="chip">See 3</div><div class="chip">Shop 2</div><div class="chip">Stay 1</div></div>
+  <div class="list">
+   <div class="sect">French Concession</div>
+   <div class="item" style="background:#f0f0f0"><div class="th lg"></div><div class="t">Fu He Hui<small>Vegetarian · $$$ · ★4.6</small><small>“tasting menu, book ahead”</small></div></div>
+   <div class="item"><div class="th lg"></div><div class="t">Propaganda Poster Centre<small>Museum · ★4.4</small></div></div>
+   <div class="item"><div class="th lg"></div><div class="t">RAC Bar<small>Café · ★4.5</small></div></div>
+   <div class="sect">The Bund</div>
+   <div class="item"><div class="th lg"></div><div class="t">Rockbund Art Museum<small>Museum · ★4.5</small></div></div>
+   <div class="item"><div class="th lg"></div><div class="t">Lost Heaven<small>Yunnan · $$ · ★4.3</small></div></div>
+  </div></div>
+ <div class="dcol d3">
+  <div class="hero">▢ ▢ ▢ ▢ photos</div>
+  <div class="pad"><b>Fu He Hui</b>Vegetarian · $$$ · ★4.6 (1,240) · Shanghai › French Concession</div>
+  <div class="btnrow" style="max-width:360px"><div class="btn pri">Directions</div><div class="btn">Website</div><div class="btn">Share</div><div class="btn">Edit</div></div>
+  <div class="cols2" style="margin-top:8px">
+   <div><span style="color:#888">NOTE</span><br>“best vegetarian tasting menu in Shanghai, book ahead” — Instagram, 3d ago<br><br><span style="color:#888">TAGS</span><br><span class="chip">must visit</span> <span class="chip">date night</span> <span class="chip">+</span></div>
+   <div><span style="color:#888">HOURS</span><br>Tue–Sun 11:30–14:00, 17:30–22:00<br><br><span style="color:#888">ADDRESS</span><br>1037 Yuyuan Rd, Changning<br><br><span style="color:#888">PHONE</span><br>+86 21 3980 9188</div>
+  </div>
+ </div>
+</div></div></div>
+
+<div class="legend">
+<b>What is gone vs today:</b> Routes tab · nearby transit · nearby stays · “Why this place” review mining · email / digest / notifications · username change · KML and GeoJSON import/export · continent-only region filter · intent as the primary nav.<br>
+<b>What is new:</b> City as the first-level object · district grouping · share-target capture with caption-as-note · “Open all in Google Maps” per city · Recent tab · paste-a-link search.<br>
+<b>Kept:</b> Google Places resolve on save · tags · notes · photos · swipe to edit/delete · export JSON · self-hosted Docker · optional login.
+</div>
+</body></html>
