@@ -1,0 +1,120 @@
+<!DOCTYPE html>
+<html lang="en"><head><meta charset="utf-8"><title>Travel — adding a place</title>
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:-apple-system,"Segoe UI",Helvetica,Arial,sans-serif;background:#ececec;color:#222;padding:32px}
+h1{font-size:20px;margin-bottom:6px}
+.sub{color:#666;font-size:13px;margin-bottom:28px;max-width:720px;line-height:1.5}
+.row{display:flex;gap:28px;flex-wrap:wrap;align-items:flex-start;margin-top:30px}
+.phone{width:260px;background:#fff;border:2px solid #333;border-radius:22px;padding:10px 10px 8px;position:relative}
+.phone .lbl{position:absolute;top:-22px;left:0;font-size:12px;color:#444;font-weight:600}
+.phone .screen{border:1px dashed #bbb;border-radius:14px;height:500px;display:flex;flex-direction:column;overflow:hidden;position:relative}
+.bar{height:38px;border-bottom:1px solid #ccc;display:flex;align-items:center;padding:0 10px;gap:8px;font-size:12px;font-weight:600;flex-shrink:0}
+.search{margin:8px;height:32px;border:1px solid #333;border-radius:16px;display:flex;align-items:center;padding:0 10px;font-size:11px;color:#222;flex-shrink:0}
+.list{flex:1;overflow:hidden;padding:0 8px}
+.item{display:flex;align-items:center;gap:8px;padding:8px 4px;border-bottom:1px solid #e3e3e3;font-size:12px}
+.item .th{width:34px;height:34px;background:#ddd;border-radius:6px;flex-shrink:0}
+.item .th.lg{width:44px;height:44px}
+.item .t{flex:1;min-width:0}
+.item .t small{display:block;color:#777;font-size:10px;margin-top:2px}
+.city{display:inline-block;background:#333;color:#fff;border-radius:4px;padding:1px 5px;font-size:9px;font-weight:600;margin-top:3px}
+.city.q{background:#fff;color:#a00;border:1px dashed #a00}
+.chip{border:1px solid #333;border-radius:12px;padding:3px 8px;font-size:10px;white-space:nowrap}
+.chip.on{background:#333;color:#fff}
+.sect{font-size:10px;text-transform:uppercase;color:#888;letter-spacing:.5px;padding:10px 4px 2px}
+.kb{margin-top:auto;background:#eee;border-top:1px dashed #999;height:130px;display:flex;align-items:center;justify-content:center;color:#888;font-size:11px;flex-shrink:0}
+.btnrow{display:flex;gap:6px;padding:6px 10px}
+.btn{flex:1;border:1px solid #333;border-radius:8px;padding:8px 0;text-align:center;font-size:11px}
+.btn.pri{background:#333;color:#fff}
+.note{font-size:10px;color:#777;padding:4px 10px;line-height:1.5}
+.annot{font-size:11px;color:#555;max-width:260px;margin-top:10px;line-height:1.5}
+.toast{position:absolute;left:14px;right:14px;bottom:14px;background:#333;color:#fff;font-size:11px;padding:9px 10px;border-radius:8px;line-height:1.5}
+.toast u{color:#fff}
+.sheet{position:absolute;left:0;right:0;bottom:0;background:#fff;border-top:2px solid #333;border-radius:14px 14px 0 0;padding:12px 10px;box-shadow:0 -6px 20px rgba(0,0,0,.15)}
+.sheet .h{font-size:12px;font-weight:600;margin-bottom:8px}
+.scrim{position:absolute;inset:0;background:rgba(0,0,0,.25)}
+.box{background:#fff;border:1px solid #bbb;border-radius:10px;padding:16px 18px;max-width:720px;font-size:12px;line-height:1.7;color:#333}
+.box b{color:#111}
+.flow{font-family:ui-monospace,Menlo,monospace;font-size:11px;background:#f4f4f4;padding:10px 12px;border-radius:6px;margin:8px 0;line-height:1.7}
+</style></head><body>
+<h1>Adding a place — how it lands in a city</h1>
+<div class="sub">You never type the city. When a Google result is saved, Google's address data is read and the place files itself under that city. The screens below make this visible, and give a way to correct it when Google is wrong.</div>
+
+<div class="box">
+<b>Where the city comes from</b>
+<div class="flow">Google Places result → address components → <b>locality</b> = city ("Shanghai"), <b>country</b> = "China", <b>sublocality</b> = district ("Xuhui")<br>If locality is missing → use administrative_area_level_1 (province / state)<br>If still missing → ask you (screen 4)</div>
+This already exists in the current backend. What is missing today is showing it to you before you tap Save, and letting you fix it afterwards.
+</div>
+
+<div class="row">
+
+<div><div class="phone"><div class="lbl">1 · Results show the city before you save</div><div class="screen">
+<div class="bar">‹ &nbsp;Add a place</div>
+<div class="search">lost heaven<span style="color:#aaa">|</span></div>
+<div class="list">
+  <div class="sect">Google</div>
+  <div class="item"><div class="th"></div><div class="t">Lost Heaven on the Bund<small>Yan'an E Rd · ★4.3</small><span class="city">Shanghai · China</span></div><div class="chip on">Save</div></div>
+  <div class="item"><div class="th"></div><div class="t">Lost Heaven (Gaoyou Rd)<small>Xuhui · ★4.2</small><span class="city">Shanghai · China</span></div><div class="chip on">Save</div></div>
+  <div class="item"><div class="th"></div><div class="t">Lost Heaven Bar<small>Jalan Sultan Ismail · ★4.0</small><span class="city">Kuala Lumpur · Malaysia</span></div><div class="chip on">Save</div></div>
+</div>
+<div class="kb">keyboard</div>
+</div></div>
+<div class="annot">Every result row carries a dark city chip. You can see where it will be filed before you tap Save. Same-name places in different cities are no longer confusing.</div></div>
+
+<div><div class="phone"><div class="lbl">2 · Saved — city confirmed in the toast</div><div class="screen">
+<div class="bar">Travel</div>
+<div class="search" style="border-color:#999;color:#888">🔍 Search places, or paste a link…</div>
+<div class="list">
+  <div class="sect">Asia</div>
+  <div class="item" style="background:#f0f0f0"><div class="th"></div><div class="t">Shanghai<small>China · just now</small></div><div style="color:#777;font-size:11px">13</div></div>
+  <div class="item"><div class="th"></div><div class="t">Tokyo<small>Japan</small></div><div style="color:#777;font-size:11px">31</div></div>
+  <div class="item"><div class="th"></div><div class="t">Kuala Lumpur<small>Malaysia</small></div><div style="color:#777;font-size:11px">4</div></div>
+</div>
+<div class="toast">✓ Lost Heaven on the Bund saved to <b>Shanghai</b><br><u>Wrong city?</u> &nbsp;·&nbsp; <u>Add note</u> &nbsp;·&nbsp; <u>Undo</u></div>
+</div></div>
+<div class="annot">The toast names the city. Shanghai moves to the top of the home list with its count ticked up, so you also see it land. "Wrong city?" opens screen 3.</div></div>
+
+<div><div class="phone"><div class="lbl">3 · Fix the city (rare)</div><div class="screen">
+<div class="bar">Travel</div>
+<div class="search" style="border-color:#999;color:#888">🔍 Search places, or paste a link…</div>
+<div class="list">
+  <div class="sect">Asia</div>
+  <div class="item"><div class="th"></div><div class="t">Shanghai<small>China</small></div></div>
+  <div class="item"><div class="th"></div><div class="t">Tokyo<small>Japan</small></div></div>
+</div>
+<div class="scrim"></div>
+<div class="sheet">
+  <div class="h">File “Disney Resort Shanghai” under…</div>
+  <div class="note" style="padding:0 0 6px">Google said: <b>Pudong New Area</b></div>
+  <div class="item" style="padding:7px 4px"><div class="t">Shanghai <small>your city · 12 places · 18 km away</small></div><div class="chip">✓</div></div>
+  <div class="item" style="padding:7px 4px"><div class="t">Pudong New Area <small>as Google returned it</small></div></div>
+  <div class="item" style="padding:7px 4px;border:none"><div class="t" style="color:#555">Other city…</div></div>
+</div>
+</div></div>
+<div class="annot">Google sometimes returns a district or a resort area as the "city". The fix sheet suggests your nearest existing city first, keeps Google's answer as an option, and a free-text fallback. One tap. Also reachable from the place's ⋯ menu later.</div></div>
+
+<div><div class="phone"><div class="lbl">4 · Google has no city (very rare)</div><div class="screen">
+<div class="bar">‹ &nbsp;Add a place</div>
+<div class="search" style="font-size:10px">maps.app.goo.gl/XyZ12…</div>
+<div class="list">
+  <div class="sect">Found</div>
+  <div class="item" style="border:none"><div class="th lg"></div><div class="t">Moganshan Bamboo Trail<small>Zhejiang · ★4.5</small><span class="city q">City unknown</span></div></div>
+  <div class="sect">Which city is this for?</div>
+  <div class="item" style="padding:7px 4px"><div class="t">Shanghai <small>your nearest city · 190 km</small></div><div class="chip">Pick</div></div>
+  <div class="item" style="padding:7px 4px"><div class="t">Hangzhou <small>nearest major city · 60 km</small></div><div class="chip">Pick</div></div>
+  <div class="item" style="padding:7px 4px;border:none"><div class="t" style="color:#555">Type a city…</div></div>
+</div>
+<div class="btnrow"><div class="btn" style="color:#999;border-color:#ccc">Save</div></div>
+</div></div>
+<div class="annot">Mountains, beaches, countryside. A red dashed chip flags it, and Save stays disabled until a city is picked. Suggestions come from distance to your existing cities and Google's nearest major locality.</div></div>
+
+</div>
+
+<div class="box" style="margin-top:36px">
+<b>Summary</b><br>
+Normal case (95%+): tap Save, city is filled by Google, you see it in the row and the toast. Zero extra steps.<br>
+Google returns a district instead of the city: tap "Wrong city?" in the toast, pick from one short list.<br>
+Google returns nothing: app asks before saving, suggests nearest cities.<br>
+Any time later: place ⋯ menu → "Change city".
+</div>
+</body></html>
