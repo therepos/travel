@@ -93,8 +93,6 @@ h2{font-size:14px;text-transform:uppercase;letter-spacing:.6px;color:#555;margin
 
 <div><div class="phone"><div class="lbl">2 · City view</div><div class="screen">
 <div class="bar">‹ &nbsp;Shanghai <span class="r">12 · ⋯</span></div>
-<div class="chips"><div class="chip on">All</div><div class="chip">Eat 6</div><div class="chip">See 3</div><div class="chip">Shop 2</div><div class="chip">Stay 1</div></div>
-<div class="chips"><div class="chip">☐ Map</div><div class="chip">must visit</div><div class="chip">date night</div></div>
 <div class="list">
   <div class="sect">French Concession · 4</div>
   <div class="item"><div class="th lg"></div><div class="t">Fu He Hui<small>Vegetarian · $$$ · ★4.6</small><small>“tasting menu, book ahead” — from IG</small></div></div>
@@ -107,19 +105,20 @@ h2{font-size:14px;text-transform:uppercase;letter-spacing:.6px;color:#555;margin
 <div class="btnrow"><div class="btn pri">Open all in Google Maps</div></div>
 <div class="tabs"><div class="on">Cities</div><div>Recent</div><div>Settings</div></div>
 </div></div>
-<div class="annot">Grouped by district so a day in one neighbourhood is obvious. Intent and tag chips are the secondary filter. "Open all in Google Maps" replaces the route planner for the 90% case.</div></div>
+<div class="annot">Grouped by district so a day in one neighbourhood is obvious. No filters. The list is short enough per city to just scroll. "Open all in Google Maps" replaces the route planner.</div></div>
 
-<div><div class="phone"><div class="lbl">3 · Capture from Instagram</div><div class="screen">
-<div class="ig"><div class="post"></div><div class="cap">@shanghaifoodie · “Fu He Hui is the best vegetarian tasting menu in Shanghai, book ahead…”</div><div style="margin-top:6px">⤴ Share → <b>Travel</b></div></div>
-<div class="sheet">
+<div><div class="phone"><div class="lbl">3 · Capture from Instagram (Android)</div><div class="screen">
+<div class="ig" style="flex:0 0 150px"><div class="post" style="width:120px;height:90px"></div><div style="margin-top:4px">⤴ Share to… → <b>Travel</b></div></div>
+<div class="sheet" style="flex:1;margin:0">
   <div class="h">Save to Travel</div>
-  <div class="search" style="margin:0 0 6px;color:#222">Fu He Hui Shanghai</div>
+  <div class="note" style="padding:0 0 6px;color:#555">📎 instagram.com/p/C8xk2… <span style="color:#999">(kept as source)</span></div>
+  <div class="search" style="margin:0 0 6px;color:#222">Fu He Hui<span style="color:#aaa">|</span></div>
   <div class="item"><div class="th"></div><div class="t">Fu He Hui<small>Yuyuan Rd, Shanghai · ★4.6</small></div><div class="chip on">Save</div></div>
   <div class="item" style="border:none"><div class="th"></div><div class="t">Fu He Hui (Pudong)<small>Shanghai · ★4.3</small></div><div class="chip">Save</div></div>
-  <div class="note">Caption kept as note · tags later</div>
+  <div class="note" style="padding:8px 0 0">Note (optional): “book ahead”</div>
 </div>
 </div></div>
-<div class="annot">PWA share target. Shared text or link pre-fills the search; proper nouns are extracted from the caption. The caption is stored as the note so you remember why you saved it. Two taps total.</div></div>
+<div class="annot"><b>How it works:</b> the web app, once added to the home screen, registers as a share target. Instagram hands us the post link only, not the caption. You type the place name, tap Save. The link is stored so you can reopen the post later.<br><br><b>iPhone:</b> Safari does not support this. Fallback is copy link → open Travel → paste into the search box, which does the same thing.</div></div>
 
 <div><div class="phone"><div class="lbl">4 · Place</div><div class="screen">
 <div class="bar">‹ <span class="r">⤴ &nbsp;✎ &nbsp;⋯</span></div>
@@ -152,12 +151,8 @@ h2{font-size:14px;text-transform:uppercase;letter-spacing:.6px;color:#555;margin
    <div class="g">Europe</div>
    <div>Lisbon <span>5</span></div>
    <div>Paris <span>18</span></div>
-   <div class="g">Tags</div>
-   <div class="c">must visit <span>9</span></div>
-   <div class="c">date night <span>4</span></div>
   </div></div>
  <div class="dcol d2"><div class="dh">Shanghai · 12 <span class="b">Open all in Maps</span></div>
-  <div class="chips" style="padding:8px"><div class="chip on">All</div><div class="chip">Eat 6</div><div class="chip">See 3</div><div class="chip">Shop 2</div><div class="chip">Stay 1</div></div>
   <div class="list">
    <div class="sect">French Concession</div>
    <div class="item" style="background:#f0f0f0"><div class="th lg"></div><div class="t">Fu He Hui<small>Vegetarian · $$$ · ★4.6</small><small>“tasting menu, book ahead”</small></div></div>
@@ -179,8 +174,8 @@ h2{font-size:14px;text-transform:uppercase;letter-spacing:.6px;color:#555;margin
 </div></div></div>
 
 <div class="legend">
-<b>What is gone vs today:</b> Routes tab · nearby transit · nearby stays · “Why this place” review mining · email / digest / notifications · username change · KML and GeoJSON import/export · continent-only region filter · intent as the primary nav.<br>
-<b>What is new:</b> City as the first-level object · district grouping · share-target capture with caption-as-note · “Open all in Google Maps” per city · Recent tab · paste-a-link search.<br>
+<b>What is gone vs today:</b> Routes tab · intent and tag filter chips · nearby transit · nearby stays · “Why this place” review mining · email / digest / notifications · username change · KML and GeoJSON import/export · continent-only region filter · intent as the primary nav.<br>
+<b>What is new:</b> City as the first-level object · district grouping · share-target capture on Android, paste-a-link on iPhone, with source link kept · “Open all in Google Maps” per city · Recent tab · paste-a-link search.<br>
 <b>Kept:</b> Google Places resolve on save · tags · notes · photos · swipe to edit/delete · export JSON · self-hosted Docker · optional login.
 </div>
 </body></html>
